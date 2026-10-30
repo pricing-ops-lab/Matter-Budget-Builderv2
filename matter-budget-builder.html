@@ -1513,7 +1513,8 @@ function resetBudgetScenarios() {
 }
 // Colour a margin the same way the KPI strip does: below floor red, below target amber.
 function marginCellStyle(m) {
-  const c = profitCls(m);
+  // Round first: the walk-away fee lands on the floor exactly, and 9.9999…% must not read as a breach.
+  const c = m == null ? '' : profitCls(Math.round(m * 10) / 10);
   return c === 'kpi-danger' ? 'color:#b42318;font-weight:600;' : c === 'kpi-warn' ? 'color:#9a6f00;font-weight:600;' : '';
 }
 function budgetPricingOptionsHTML(rows) {

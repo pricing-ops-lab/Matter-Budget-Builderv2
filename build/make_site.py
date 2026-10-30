@@ -4,7 +4,7 @@ Generate the public landing page and the QR code that points at it.
 
 The landing page is what a conference attendee lands on after scanning the
 QR code on a slide or a handout: a short explanation and one large Download
-button that hands them the self-contained pricing-assistant.html.
+button that hands them the self-contained matter-budget-builder.html.
 
 Outputs:
     index.html          the landing page (QR inlined as SVG, no external refs)
@@ -38,7 +38,7 @@ ASSETS = ROOT / "assets"
 TEMPLATE = ROOT / "src" / "index.template.html"
 OUT = ROOT / "index.html"
 
-DEFAULT_URL = "https://powersurge91.github.io/Legal-Pricing-Assistant-/"
+DEFAULT_URL = "https://pricing-ops-lab.github.io/Matter-Budget-Builderv2/"
 
 NAVY = "#1a2b5e"
 
@@ -72,7 +72,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--url", default=DEFAULT_URL,
                     help=f"public URL of the landing page (default: {DEFAULT_URL})")
-    ap.add_argument("--app", default="pricing-assistant.html",
+    ap.add_argument("--app", default="matter-budget-builder.html",
                     help="filename of the self-contained app, relative to the page")
     args = ap.parse_args()
 
@@ -161,7 +161,7 @@ def _write_qr_card(qr):
   <g transform="translate({pad},{pad})">{body}</g>
   <text x="{w/2}" y="{size + pad + 34}" text-anchor="middle"
         font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="700"
-        fill="{NAVY}">Pricing Assistant</text>
+        fill="{NAVY}">Matter Budget Builder</text>
   <text x="{w/2}" y="{size + pad + 58}" text-anchor="middle"
         font-family="Arial, Helvetica, sans-serif" font-size="13"
         fill="#5b6480">Scan to download &#183; works offline</text>

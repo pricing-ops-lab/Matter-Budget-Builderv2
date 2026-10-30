@@ -1,20 +1,21 @@
-# Pricing Assistant
+# Matter Budget Builder
 
-> **Status: retired (October 2026).** The site no longer distributes the tool.
-> `index.html` and `404.html` are both copies of `src/retired.html`, so the QR
-> code and any old links to the download or demo land on a short retirement note
-> instead of a bare 404. The source and build tooling are unchanged.
->
-> **To relaunch** the full site — download, demo and sample PDF — `git revert`
-> the commit titled *"Retire the site"*. Nothing needs rebuilding.
+A legal matter budgeting tool that runs entirely in the browser, as a **single
+self-contained HTML file**. No install, no server, no account, no network.
 
-A legal matter pricing tool that runs entirely in the browser, as a **single
-self-contained HTML file**. No install, no server, no account, no network — you
-can open it from a USB stick on a plane and every feature still works.
+- **Budget by phase and task:** pick the team from a rate card, enter hours per
+  timekeeper, and get fees at standard and proposed rates, the blended rate,
+  realization and profit margin.
+- **Default pricing options:** standard rates, 5/10/15% discounts, a fixed fee
+  with contingency, the fee at the target margin and the walk-away fee at the
+  profit floor, all priced against the profit policy in Settings.
+- **Two audiences:** a client / RFP fee estimate with no internal figures, and an
+  internal review memo, both written from the budget and editable. Exports to
+  Word, PDF, email draft (.eml), clipboard, and a formula-driven Excel workbook.
 
 Built by Sergey Mezhiritskiy.
 
-**Live page:** https://powersurge91.github.io/Legal-Pricing-Assistant-/
+**Live page:** https://pricing-ops-lab.github.io/Matter-Budget-Builderv2/
 
 ---
 
@@ -22,99 +23,87 @@ Built by Sergey Mezhiritskiy.
 
 | Path | What it is |
 |---|---|
-| `pricing-assistant.html` | **The deliverable.** The self-contained app — this is the file people download. Generated; do not hand-edit. |
-| `index.html` | The public landing page: description, download button, QR code. Generated. |
-| `assets/qr.*` | QR code pointing at the landing page — PNG and SVG for slides, plus a captioned card. Generated. |
-| `src/pricing-assistant.src.html` | **The source you edit.** Loads its libraries from CDNs; the build inlines them. |
-| `src/index.template.html` | Source template for the landing page. |
-| `build/inline.py` | Builds `pricing-assistant.html` from the source. |
+| `matter-budget-builder.html` | **The deliverable.** The self-contained app people download. Generated; do not hand-edit. |
+| `index.html` | The landing page: description, download, demo link, QR code. Generated. |
+| `demo.html` | Guided one-minute demo that drives the real app in a frame. Hand-written. |
+| `404.html` | Sends broken links back to the home page. Hand-written. |
+| `assets/qr.*` | QR code for the landing page: PNG and SVG, plus a captioned slide card. Generated. |
+| `assets/sample-fee-estimate.*` | The client fee estimate the demo budget exports (PDF and PNG preview). Generated. |
+| `src/matter-budget-builder.src.html` | **The source you edit.** Loads its one library from a CDN; the build inlines it. |
+| `src/index.template.html` | Template for the landing page. |
+| `build/inline.py` | Builds `matter-budget-builder.html` from the source. |
 | `build/make_site.py` | Builds `index.html` and the QR assets. |
-| `build/vendor/` | The five pinned libraries, vendored so builds are reproducible and need no network. |
-
-Everything at the repo root is **generated**. Edit `src/`, then rebuild.
+| `build/make_demo_assets.js` | Builds the sample fee estimate from the demo budget. |
+| `build/vendor/` | Pinned libraries, vendored so builds are reproducible offline. |
+| `tests/` | Headless browser tests, run with network access blocked. |
 
 ## Rebuilding
 
 ```bash
-python3 build/inline.py      # src/pricing-assistant.src.html -> pricing-assistant.html
-python3 build/make_site.py   # -> index.html + assets/qr.*
+python3 build/inline.py           # src -> matter-budget-builder.html
+node build/make_demo_assets.js    # -> assets/sample-fee-estimate.pdf/.png
+python3 build/make_site.py        # -> index.html + assets/qr.*
 ```
 
 `make_site.py` needs [segno](https://pypi.org/project/segno/) (`pip install segno`).
-`inline.py` has no dependencies beyond the standard library.
+`make_demo_assets.js` and the tests need Playwright. If the site moves, regenerate
+the QR with `python3 build/make_site.py --url <new URL>`; the landing page shows a
+warning whenever the QR doesn't match the address it is served from.
 
-If the site ever moves to a different URL, regenerate the QR so it points to the
-right place:
+The demo budget is defined twice, in `demo.html` and `build/make_demo_assets.js`,
+so the PDF at the end of the demo matches what the demo built. Change both together.
+
+## Tests
 
 ```bash
-python3 build/make_site.py --url https://example.com/pricing/
+node tests/static.test.js    # every element id the code looks up exists
+node tests/offline.test.js   # bundled library works, nothing is fetched
+node tests/budget.test.js    # known budget to the dollar, pricing options, narratives
+node tests/ui.test.js        # real controls, every export, uploads, Clear All
 ```
 
-The landing page compares the URL baked into the QR against the address it is
-actually served from, and shows a visible warning if they differ — so a stale QR
-can't quietly end up on a printed handout.
+`budget.test.js` and `ui.test.js` also check that client documents contain no
+cost, margin, profit, realization or discount wording and no internal figures.
 
 ## How the offline build works
 
-The source file pulls five libraries from public CDNs. Any one of them failing
-to load — no wifi, a blocked CDN, a captive portal at a conference venue —
-silently breaks import or export. The build inlines all five:
+The source loads xlsx-js-style 1.2.0 (Excel import and export) from a CDN.
+`inline.py` replaces that tag with the vendored copy, and fails the build if
+anything external would still be fetched (`src=`, stylesheet `<link>`, `@import`).
+Plain `<a href>` links are allowed because nothing loads until someone clicks.
 
-| Library | Version | Used for |
-|---|---|---|
-| xlsx-js-style | 1.2.0 | rate-card `.xlsx` import/export |
-| pdf.js | 3.4.120 | rate-card `.pdf` import |
-| jsPDF | 2.5.1 | `.pdf` export |
-| jsPDF-AutoTable | 3.5.31 | table layout in the PDF export |
-
-Four go straight into `<script>` tags. The fifth, the pdf.js **worker**, can't —
-pdf.js hands it to the browser as a URL. The build parks it in a non-executing
-`<script type="javascript/worker">` block and converts it to a Blob URL at
-runtime, which keeps it inside the single file.
-
-The build also patches one thing that offline use would otherwise break: the
-"save updated rates back into the app file" fallback read the app's own source
-via `fetch(location.href)`, which browsers block on `file://` URLs. It now falls
-back to a file picker, so the feature works from a local file too.
-
-`inline.py` fails the build if any external `src`/`href` survives, so the
-self-contained guarantee is checked rather than assumed.
+It also patches the "save settings back into the app file" fallback, which read
+the app's own source with `fetch(location.href)`. Browsers block that on `file://`
+URLs, so it falls back to a file picker.
 
 ## Updating rate data
 
-Two ways:
-
-- **In the app** — the Settings panel writes new rates back into the file.
-- **By hand** — open the `.html` in a text editor, find `// ── BEGIN RATE DATA ──`,
-  replace the array, and bump `RATE_DATA_VERSION`. Do this in
-  `src/pricing-assistant.src.html` and rebuild, so the change survives the next build.
+- **In the app:** Settings writes a new rate card back into the file.
+- **By hand:** in `src/matter-budget-builder.src.html`, find
+  `// ── BEGIN RATE DATA ──`, replace the array, bump `RATE_DATA_VERSION`, rebuild.
 
 ## Publishing
 
 GitHub Pages, deploying from the `main` branch root. `.nojekyll` is present so
-the asset paths are served verbatim.
-
-> **Note:** GitHub Pages on a **private** repo requires a paid plan. On the free
-> plan the repository must be public for the download link to work.
+paths are served verbatim. On the free plan the repository must be public.
 
 ## License
 
 Copyright (c) 2026 Sergey Mezhiritskiy. See [LICENSE](LICENSE) for the full terms.
 
-**Free to use in your own practice** — including commercially, including to
+**Free to use in your own practice.** This includes commercial use, and using it to
 scope, price, quote and bill your own legal work. Firms, in-house teams and
 individual practitioners need no permission, and may adapt it for internal use.
 
-**Not free to resell.** It may not be sold, incorporated into a product or
-service offered to third parties, hosted as a service, or rebranded. Those
-terms are aimed at software vendors, not at firms using it for their own work;
-sharing an analysis or export it produces with your own clients is ordinary use.
+**Not free to resell.** It may not be sold, incorporated into a product or service
+offered to third parties, hosted as a service, or rebranded. These limits are aimed
+at software vendors, not at firms using it for their own work. Sharing a budget or
+fee estimate it produces with your own clients is ordinary use.
 
-The four bundled libraries keep their own permissive licenses — see
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). This project's terms do not
-restrict them.
+The bundled library keeps its own license; see
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Privacy
 
-The app runs wholly in the browser. It makes no network requests — the build
-enforces that — and nothing a user loads into it leaves their device.
+The app runs wholly in the browser. It makes no network requests (the build
+enforces that), and nothing a user enters leaves their device.

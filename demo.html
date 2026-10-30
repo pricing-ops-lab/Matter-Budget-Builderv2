@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matter Budget Builder — Live Demo</title>
+<meta name="author" content="Sergey Mezhiritskiy">
+<meta name="description" content="A guided walkthrough of the Matter Budget Builder: the profit policy, a phase and task budget for a five-person team, the default pricing options, the internal review memo and the client fee estimate it exports.">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a2b5e'/><text x='16' y='23' font-size='19' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='white' text-anchor='middle'>B</text></svg>">
+<style>
+  :root {
+    --navy:#1a2b5e; --navy-deep:#131f45; --navy-hover:#24397a;
+    --ink:#1e2435; --muted:#5b6480; --faint:#8a91a6;
+    --border:#dde0eb; --bg:#f3f4f9; --card:#fff; --success:#1a6b2e;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --shadow:0 1px 2px rgba(19,31,69,.05),0 8px 28px rgba(19,31,69,.09);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:15px;line-height:1.55}
+
+  header{background:linear-gradient(120deg,var(--navy-deep) 0%,var(--navy) 55%,#23346c 100%);color:#fff;padding:20px 16px 24px;text-align:center}
+  header .kicker{font-size:10px;text-transform:uppercase;letter-spacing:1.7px;font-weight:600;color:#9db0dd;margin-bottom:7px}
+  header h1{font-size:23px;font-weight:700;letter-spacing:-.3px}
+  header .byline{font-size:13px;color:#dce4f7;margin-top:7px}
+  header .author-link{color:inherit;text-decoration:none;border-bottom:1px solid rgba(255,255,255,.4);transition:color .18s,border-color .18s}
+  header .author-link:hover{color:#fff;border-bottom-color:#fff}
+  header .author-link:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.55);border-radius:2px}
+  header .back{position:absolute;left:16px;top:20px;color:#dce4f7;text-decoration:none;font-size:13px;font-weight:600}
+  header .back:hover{color:#fff}
+
+  main{max-width:1180px;margin:0 auto;padding:0 16px 56px}
+
+  /* ── Stage ── */
+  .stage-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-top:-14px;overflow:hidden}
+
+  .narration{display:flex;gap:14px;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--border);background:#fbfcfe;min-height:86px}
+  .narration .num{flex:0 0 auto;width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-top:1px}
+  .narration .txt h2{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:3px}
+  .narration .txt p{font-size:13.5px;color:var(--muted)}
+  .narration .txt b{color:var(--ink);font-weight:600}
+
+  .viewport{position:relative;background:#f3f4f9;overflow:hidden}
+  .viewport iframe{border:0;width:1360px;height:1000px;transform-origin:top left;display:block}
+  /* The export is shown as an image of the real PDF: an <img> renders everywhere,
+     while <iframe src="*.pdf"> needs a browser PDF viewer that phones often lack. */
+  #pdf-stage{display:none;position:absolute;inset:0;background:#4a4f57;overflow:auto}
+  #pdf-scroll{padding:18px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  #pdf-img{max-width:100%;width:1000px;height:auto;display:block;background:#fff;
+    box-shadow:0 4px 22px rgba(0,0,0,.4);border-radius:2px}
+  #pdf-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding-bottom:6px}
+  #pdf-actions .btn{text-decoration:none}
+  #pdf-actions .btn-ghost{background:rgba(255,255,255,.92)}
+
+  #stage-cover{position:absolute;inset:0;background:rgba(243,244,249,.97);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+  #stage-cover h3{font-size:17px;color:var(--ink)}
+  #stage-cover p{font-size:13.5px;color:var(--muted);max-width:420px}
+  .spinner{width:26px;height:26px;border:3px solid #d5dae8;border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── Controls ── */
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:13px 20px;border-top:1px solid var(--border);background:#fbfcfe}
+  .btn{font-family:var(--font);font-size:13px;font-weight:600;border-radius:6px;padding:8px 16px;cursor:pointer;border:1px solid transparent;transition:background .16s,border-color .16s}
+  .btn-primary{background:var(--navy);color:#fff}
+  .btn-primary:hover{background:var(--navy-hover)}
+  .btn-ghost{background:transparent;color:var(--navy);border-color:#cdd4e6}
+  .btn-ghost:hover{background:#eef1fa}
+  .btn:disabled{opacity:.45;cursor:default}
+  .rail{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .rail button{font-family:var(--font);font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:20px;cursor:pointer;
+    border:1px solid var(--border);background:#fff;color:var(--muted);transition:all .16s}
+  .rail button:hover{border-color:var(--navy);color:var(--navy)}
+  .rail button[aria-current="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+  .rail button.done{color:var(--success);border-color:#bfe0c8}
+  .rail button.done[aria-current="true"]{color:#fff}
+
+  .progress{height:3px;background:#e6e9f3}
+  .progress div{height:100%;width:0;background:var(--navy);transition:width .3s linear}
+
+  /* ── Footer CTA ── */
+  .cta{background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);margin-top:20px;padding:24px 26px;text-align:center}
+  .cta h2{font-size:17px;margin-bottom:6px}
+  .cta p{font-size:14px;color:var(--muted);margin-bottom:18px}
+  .cta-row{display:flex;gap:11px;justify-content:center;flex-wrap:wrap}
+  .btn-lg{display:inline-flex;align-items:center;gap:9px;text-decoration:none;font-size:15px;padding:13px 26px;border-radius:8px}
+
+  .note{font-size:12px;color:var(--faint);text-align:center;padding:18px 16px 0;line-height:1.7}
+
+  /* Phone: an iframe of a desktop tool is not worth showing. */
+  #small-screen{display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;
+    box-shadow:var(--shadow);margin-top:-14px;padding:30px 24px;text-align:center}
+  #small-screen h2{font-size:17px;margin-bottom:8px}
+  #small-screen p{font-size:14px;color:var(--muted);margin-bottom:18px}
+  @media (max-width:860px){
+    .stage-wrap{display:none}
+    #small-screen{display:block}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="back" href="./">&larr; Back</a>
+  <div class="kicker">Guided Walkthrough</div>
+  <h1>Matter Budget Builder — Live Demo</h1>
+  <div class="byline">Built by <a class="author-link" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a></div>
+</header>
+
+<main>
+
+  <!-- Narrow screens get the point and the download, not a squeezed iframe -->
+  <section id="small-screen">
+    <h2>The demo needs a wider screen</h2>
+    <p>This walkthrough drives the full tool, which is built for a laptop. Open this
+       page on a computer to watch it, or download the tool now and try it yourself.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="matter-budget-builder.html" download>Download the tool</a>
+      <a class="btn btn-ghost btn-lg" href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener">See a sample fee estimate</a>
+    </div>
+  </section>
+
+  <section class="stage-wrap">
+    <div class="narration">
+      <div class="num" id="step-num">1</div>
+      <div class="txt">
+        <h2 id="step-title">Loading the tool…</h2>
+        <p id="step-caption">This is the real application, running in your browser. Nothing is simulated.</p>
+      </div>
+    </div>
+
+    <div class="progress"><div id="progress-bar"></div></div>
+
+    <div class="viewport" id="viewport">
+      <iframe id="app" src="matter-budget-builder.html" title="Matter Budget Builder"></iframe>
+      <div id="pdf-stage">
+        <div id="pdf-scroll">
+          <img id="pdf-img" alt="The exported client fee estimate: fees by phase, team, assumptions and a summary table">
+          <div id="pdf-actions">
+            <a class="btn btn-primary" href="assets/sample-fee-estimate.pdf" download>Download this PDF</a>
+            <a class="btn btn-ghost" href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener">Open in a new tab</a>
+          </div>
+        </div>
+      </div>
+      <div id="stage-cover">
+        <div class="spinner"></div>
+        <h3>Loading the tool…</h3>
+        <p>The full application is under 1&nbsp;MB. It loads once, then the walkthrough begins.</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="btn-play">Start the demo</button>
+      <button class="btn btn-ghost" id="btn-restart">Restart</button>
+      <div class="rail" id="rail"></div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2>Every number above was computed live</h2>
+    <p>The same file you download does all of this on your machine, with no internet connection.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary btn-lg" href="matter-budget-builder.html" download>Download the Matter Budget Builder</a>
+      <a class="btn btn-ghost btn-lg" href="assets/sample-fee-estimate.pdf" download>Download the sample fee estimate</a>
+    </div>
+  </section>
+
+  <p class="note">
+    Runs entirely in your browser. The firm, matter and rate card are fictional.<br>
+    Free to use in your own practice, including commercially. Not for resale, or for
+    inclusion in a product or service sold to others &mdash;
+    <a href="https://github.com/pricing-ops-lab/Matter-Budget-Builderv2/blob/main/LICENSE"
+       target="_blank" rel="noopener" style="color:var(--muted)">terms</a>.
+  </p>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var APP_FILE = 'matter-budget-builder.html';
+  var frame   = document.getElementById('app');
+  var viewport= document.getElementById('viewport');
+  var cover   = document.getElementById('stage-cover');
+  var pdfStage= document.getElementById('pdf-stage');
+  var pdfImg  = document.getElementById('pdf-img');
+  var elNum   = document.getElementById('step-num');
+  var elTitle = document.getElementById('step-title');
+  var elCap   = document.getElementById('step-caption');
+  var bar     = document.getElementById('progress-bar');
+  var btnPlay = document.getElementById('btn-play');
+  var btnRe   = document.getElementById('btn-restart');
+  var rail    = document.getElementById('rail');
+
+  // The demo budget. Keep in step with DEMO in build/make_demo_assets.js, which
+  // prints the sample fee estimate from exactly this budget.
+  var DEMO = {
+    firm: 'Meridian & Cole LLP',
+    matter: 'Acme Corp — Acquisition of Beta Ltd',
+    team: ['TK005', 'TK002', 'TK006', 'TK004', 'TK001'],
+    proposedFactor: 0.92,
+    rows: [
+      { phase: 'Due Diligence', task: 'Document review',   hours: { TK005: 3, TK002: 8,  TK006: 14, TK004: 30, TK001: 40 } },
+      { phase: 'Due Diligence', task: 'Diligence report',  hours: { TK005: 4, TK002: 10, TK006: 8,  TK004: 12, TK001: 10 } },
+      { phase: 'Negotiation',   task: 'SPA drafting',      hours: { TK005: 10, TK002: 22, TK006: 12, TK004: 24, TK001: 16 } },
+      { phase: 'Negotiation',   task: 'Disclosure letter', hours: { TK005: 2, TK002: 6,  TK006: 10, TK004: 12, TK001: 14 } },
+      { phase: 'Closing',       task: 'Closing mechanics', hours: { TK005: 2, TK002: 6,  TK006: 4,  TK004: 10, TK001: 12 } }
+    ]
+  };
+
+  var APP_W = 1360, APP_H = 1000;
+
+  // Scale the 1360px app down to whatever width the page has.
+  function fit() {
+    var w = viewport.clientWidth;
+    var s = Math.min(1, w / APP_W);
+    frame.style.transform = 'scale(' + s + ')';
+    viewport.style.height = Math.round(APP_H * s) + 'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  // ── Helpers that reach into the app ───────────────────────────────────
+  // Only `function` declarations land on the frame's window; `let`/`const`
+  // globals (budgetTimekeepers, lastResult, …) do not, so those are read with
+  // eval inside the frame's own scope.
+  function W() { return frame.contentWindow; }
+  function D() { return frame.contentDocument; }
+  function ev(expr) { return W().eval(expr); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  // Steps animate at normal speed when played, but collapse to instant while
+  // replaying the ones before a step the viewer jumped to.
+  var speed = 1;
+  function pace(ms) { return wait(Math.round(ms * speed)); }
+  // Scroll inside the tool only. scrollIntoView would also scroll this page and
+  // push the narration out of view.
+  function scrollTo(sel, block) {
+    var el = D().querySelector(sel);
+    if (!el) return;
+    var box = el.parentElement;
+    while (box && box !== D().body && box !== D().documentElement) {
+      var oy = W().getComputedStyle(box).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && box.scrollHeight > box.clientHeight) break;
+      box = box.parentElement;
+    }
+    var inner = box && box !== D().body && box !== D().documentElement;
+    var view = inner ? box.getBoundingClientRect() : { top: 0, height: W().innerHeight };
+    var r = el.getBoundingClientRect();
+    var off = (block === 'start') ? 16 : Math.max(16, (view.height - r.height) / 2);
+    var top = r.top - view.top - off + (inner ? box.scrollTop : W().scrollY);
+    var opts = { top: Math.max(0, top), behavior: speed ? 'smooth' : 'auto' };
+    if (inner) box.scrollTo(opts); else W().scrollTo(opts);
+  }
+  function showApp()  { pdfStage.style.display = 'none'; }
+  function showPDF()  { pdfStage.style.display = 'block'; }
+  function closeSettings() {
+    var o = D().getElementById('settings-overlay');
+    if (o) o.style.display = 'none';
+  }
+  function fees() { return ev('curr(lastResult.totals.proposedFees)'); }
+
+  // ── The walkthrough ───────────────────────────────────────────────────
+  var STEPS = [
+    {
+      tab: 'Settings',
+      title: 'Settings — the firm’s profit policy, set once',
+      caption: 'Firm name, letterhead and the profit policy live here. This firm targets a <b>20% profit ' +
+               'margin</b> with a <b>10% floor</b>. Those two numbers price the default options and colour ' +
+               'every margin in the tool.',
+      hold: 7000,
+      run: async function () {
+        showApp();
+        // #welcome-overlay is the dimmed backdrop; #welcome-modal is only the box inside it.
+        ['welcome-overlay', 'welcome-modal'].forEach(function (id) {
+          var el = D().getElementById(id);
+          if (el) el.style.display = 'none';
+        });
+        ev('FIRM_CONFIG').name = DEMO.firm;
+        W().openSettings();
+        await pace(600);
+        var n = D().getElementById('cfg-firm-name'); if (n) n.value = DEMO.firm;
+        scrollTo('#cfg-cfo-target');
+      }
+    },
+    {
+      tab: 'The team',
+      title: 'Pick the team from the rate card',
+      caption: 'Five timekeepers: an equity partner, a non-equity partner, counsel and two associates. ' +
+               'Standard rates come from the rate card; the proposed rates here are an agreed <b>8% off</b>.',
+      hold: 6000,
+      run: async function () {
+        showApp();
+        closeSettings();
+        D().getElementById('matter-name').value = DEMO.matter;
+        if (ev('budgetTimekeepers.length') === 0) {
+          for (var i = 0; i < DEMO.team.length; i++) { W().addBudgetTimekeeper(DEMO.team[i]); await pace(220); }
+        }
+        ev('budgetTimekeepers').forEach(function (t) {
+          W().updateBudgetTK(t.tkid, 'proposedRate', Math.round(t.standardRate * DEMO.proposedFactor / 25) * 25);
+        });
+        W().renderBudget();
+        scrollTo('#budget-tk-tbody');
+      }
+    },
+    {
+      tab: 'Hours',
+      title: 'Hours by phase, task and timekeeper',
+      caption: 'Three phases and five tasks, staffed the way a deal really runs: the associates carry the ' +
+               'document review, the partners lead the negotiation. About 300 hours in all.',
+      hold: 7000,
+      run: async function () {
+        showApp();
+        W().clearBudgetRows();
+        for (var i = 0; i < DEMO.rows.length; i++) { W().addBudgetRow(DEMO.rows[i]); await pace(380); }
+        scrollTo('#budget-matrix-tbody');
+      }
+    },
+    {
+      tab: 'Build it',
+      title: 'Build the budget',
+      caption: 'One click: fees by phase at standard and proposed rates, the blended rate, realization and ' +
+               'profit margin, coloured against the policy from step 1.',
+      hold: 7000,
+      run: async function () {
+        showApp();
+        // preserveScroll: the app's own scroll-to-output would scroll this page as well
+        W().runAnalysis({ preserveScroll: true });
+        await pace(700);
+        elCap.innerHTML = 'One click: <b>' + fees() + '</b> across three phases, with the blended rate, ' +
+          'realization and profit margin, coloured against the policy from step 1.';
+        scrollTo('#output-section', 'start');
+      }
+    },
+    {
+      tab: 'Pricing options',
+      title: 'Pricing options, ready before anyone asks',
+      caption: 'Every budget is priced against standard rates, 5/10/15% discounts, a fixed fee with ' +
+               'contingency, the fee at the <b>20% target</b> and the <b>walk-away fee</b> at the 10% floor. ' +
+               'Each one shows its margin, so you know which ones you can live with.',
+      hold: 9000,
+      run: async function () {
+        showApp();
+        scrollTo('#output-content table.pricing-options');
+      }
+    },
+    {
+      tab: 'Internal memo',
+      title: 'An internal review memo, written from the numbers',
+      caption: 'For the partner or the pricing committee: margin against target and floor, cost to deliver, ' +
+               'the staffing mix, the walk-away fee and the deepest discount that still holds the floor. ' +
+               'Edit it freely; your wording is kept.',
+      hold: 9000,
+      run: async function () {
+        showApp();
+        scrollTo('#narr-text-internal');
+      }
+    },
+    {
+      tab: 'Client proposal',
+      title: 'Client / RFP language, with nothing internal in it',
+      caption: 'The client version says what the client needs: fees and scope by phase, the team and the ' +
+               'assumptions. No cost, margin, realization or discount figures, ever.',
+      hold: 8000,
+      run: async function () {
+        showApp();
+        scrollTo('#narr-text-client');
+      }
+    },
+    {
+      tab: 'Fee estimate',
+      title: 'The client fee estimate it exports',
+      caption: 'Client / RFP → PDF produces this: letterhead, the proposal and the fee table, on one page. ' +
+               'The same content goes to Word or an email draft; the internal memo has its own exports.',
+      hold: 9000,
+      run: async function () {
+        if (!pdfImg.getAttribute('src')) pdfImg.setAttribute('src', 'assets/sample-fee-estimate.png');
+        pdfStage.scrollTop = 0;
+        showPDF();
+        await pace(300);
+      }
+    }
+  ];
+
+  // ── Player ────────────────────────────────────────────────────────────
+  var idx = -1, playing = false, token = 0, started = false;
+
+  STEPS.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.textContent = (i + 1) + '. ' + s.tab;
+    b.addEventListener('click', function () { pause(); jump(i); });
+    rail.appendChild(b);
+  });
+
+  function paintRail() {
+    [].forEach.call(rail.children, function (b, i) {
+      b.setAttribute('aria-current', String(i === idx));
+      b.classList.toggle('done', i < idx);
+    });
+  }
+
+  function setNarration(s, i) {
+    elNum.textContent = i + 1;
+    elTitle.textContent = s.title;
+    elCap.innerHTML = s.caption;
+  }
+
+  function animateBar(ms) {
+    bar.style.transition = 'none'; bar.style.width = '0%';
+    void bar.offsetWidth;
+    bar.style.transition = 'width ' + ms + 'ms linear';
+    bar.style.width = '100%';
+  }
+
+  async function go(i, autoAdvance) {
+    if (i < 0 || i >= STEPS.length) return;
+    var my = ++token;
+    idx = i;
+    var s = STEPS[i];
+    setNarration(s, i);
+    paintRail();
+    window.demoBusy = true;
+    try {
+      await s.run();
+    } catch (e) {
+      elTitle.textContent = 'The walkthrough stopped here';
+      elCap.innerHTML = 'Something in this step did not run. You can still ' +
+        '<a href="' + APP_FILE + '" download>download the tool</a> and try it yourself.';
+      playing = false; btnPlay.textContent = 'Start the demo';
+      window.demoBusy = false;
+      return;
+    }
+    window.demoBusy = false;
+    if (my !== token) return;
+    if (autoAdvance && playing) {
+      animateBar(s.hold);
+      await wait(s.hold);
+      if (my !== token || !playing) return;
+      if (i + 1 < STEPS.length) { go(i + 1, true); }
+      else { playing = false; btnPlay.textContent = 'Play again'; bar.style.width = '100%'; }
+    } else {
+      bar.style.transition = 'none'; bar.style.width = '0%';
+    }
+  }
+
+  // Steps build on each other, so jumping to one replays the earlier ones instantly.
+  async function jump(target) {
+    var my = ++token;
+    window.demoBusy = true;
+    for (var i = 0; i <= target; i++) {
+      if (my !== token) { window.demoBusy = false; return; }
+      idx = i;
+      setNarration(STEPS[i], i);
+      paintRail();
+      speed = (i === target) ? 1 : 0;
+      try { await STEPS[i].run(); } catch (e) { /* go() surfaces failures on normal play */ }
+    }
+    speed = 1;
+    bar.style.transition = 'none'; bar.style.width = '0%';
+    window.demoBusy = false;
+  }
+
+  function play() {
+    playing = true;
+    btnPlay.textContent = 'Pause';
+    go(idx < 0 ? 0 : idx, true);
+    started = true;
+  }
+  function pause() {
+    playing = false; token++;
+    btnPlay.textContent = 'Resume';
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+  }
+
+  btnPlay.addEventListener('click', function () {
+    if (playing) pause();
+    else {
+      if (idx >= STEPS.length - 1) { restart(); return; }
+      play();
+    }
+  });
+  btnRe.addEventListener('click', restart);
+
+  function restart() {
+    token++; playing = false; idx = -1;
+    bar.style.transition = 'none'; bar.style.width = '0%';
+    showApp();
+    btnPlay.textContent = 'Start the demo';
+    frame.src = APP_FILE;   // clean slate
+    cover.style.display = 'flex';
+    cover.querySelector('h3').textContent = 'Reloading the tool…';
+  }
+
+  // Wait for the app before enabling anything.
+  frame.addEventListener('load', function () {
+    fit();
+    var tries = 0;
+    (function ready() {
+      var ok = false;
+      try { ok = typeof W().runAnalysis === 'function' && typeof W().buildExportDoc === 'function'; } catch (e) { ok = false; }
+      if (ok) {
+        cover.style.display = 'none';
+        btnPlay.disabled = false;
+        if (!started) {
+          elTitle.textContent = 'Ready when you are';
+          elCap.textContent = 'Eight steps, about a minute: the profit policy, a phase and task budget for a ' +
+                              'five-person team, the pricing options, and the internal and client documents it writes.';
+        } else { play(); }
+      } else if (++tries < 60) { setTimeout(ready, 150); }
+      else {
+        cover.querySelector('h3').textContent = 'The tool could not be loaded here';
+        cover.querySelector('p').innerHTML =
+          '<a href="' + APP_FILE + '" download>Download it instead</a>. It runs offline on your machine.';
+      }
+    })();
+  });
+
+  btnPlay.disabled = true;
+})();
+</script>
+
+</body>
+</html>

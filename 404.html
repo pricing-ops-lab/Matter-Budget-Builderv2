@@ -3,92 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pricing Assistant</title>
-<meta name="author" content="Sergey Mezhiritskiy">
-<meta name="description" content="The Pricing Assistant is no longer distributed here. Copies already downloaded keep working.">
+<title>Page not found — Matter Budget Builder</title>
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a2b5e'/><text x='16' y='23' font-size='19' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='white' text-anchor='middle'>P</text></svg>">
-<!--
-  Retirement page. The site used to serve the Pricing Assistant download; it now
-  says the tool has been retired, so the QR code handed out at the talk and any
-  old bookmarks land somewhere sensible instead of on a bare 404. The root
-  index.html and 404.html are both copies of this file.
-  To relaunch the full site: git revert the commit that retired it.
--->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a2b5e'/><text x='16' y='23' font-size='19' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='white' text-anchor='middle'>B</text></svg>">
 <style>
-  :root {
-    --navy: #1a2b5e; --navy-deep: #131f45; --navy-hover: #24397a;
-    --ink: #1e2435; --muted: #5b6480; --faint: #8a91a6;
-    --border: #dde0eb; --bg: #f3f4f9; --card: #ffffff;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --shadow: 0 1px 2px rgba(19,31,69,.05), 0 8px 28px rgba(19,31,69,.09);
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { -webkit-text-size-adjust: 100%; }
-  body { font-family: var(--font); color: var(--ink); background: var(--bg); line-height: 1.6; font-size: 15px; min-height: 100vh; }
-
-  header {
-    background: linear-gradient(120deg, var(--navy-deep) 0%, var(--navy) 55%, #23346c 100%);
-    color: #fff; padding: 30px 16px 42px; text-align: center;
-  }
-  header .kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 1.7px; font-weight: 600; color: #9db0dd; margin-bottom: 9px; }
-  header h1 { font-size: 27px; font-weight: 700; letter-spacing: -.4px; }
-
-  main { max-width: 600px; margin: 0 auto; padding: 0 16px 56px; }
-  .card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-    box-shadow: var(--shadow); padding: 30px 28px; margin-top: -22px; text-align: center;
-  }
-  .card h2 { font-size: 19px; font-weight: 700; margin-bottom: 14px; }
-  .card p { color: var(--muted); margin-bottom: 14px; }
-  .card p b { color: var(--ink); font-weight: 600; }
-
-  .contact {
-    display: inline-flex; align-items: center; justify-content: center; margin-top: 8px;
-    background: var(--navy); color: #fff; text-decoration: none;
-    font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(26,43,94,.28); transition: background .18s;
-  }
-  .contact:hover { background: var(--navy-hover); }
-  .contact:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(26,43,94,.24); }
-
-  footer { text-align: center; font-size: 12px; color: var(--faint); padding: 24px 16px 0; }
-
-  @media (max-width: 560px) {
-    header h1 { font-size: 22px; }
-    .card { padding: 24px 20px; }
-    .contact { width: 100%; }
-  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f3f4f9;color:#1e2435;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+  .card{background:#fff;border:1px solid #dde0eb;border-radius:10px;box-shadow:0 1px 2px rgba(19,31,69,.05),0 8px 28px rgba(19,31,69,.09);
+        max-width:460px;width:100%;padding:32px 28px;text-align:center}
+  .kicker{font-size:10px;text-transform:uppercase;letter-spacing:1.7px;font-weight:600;color:#5b6480;margin-bottom:8px}
+  h1{font-size:20px;color:#1a2b5e;margin-bottom:10px}
+  p{font-size:14px;color:#5b6480;line-height:1.55;margin-bottom:20px}
+  a.btn{display:inline-block;background:#1a2b5e;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:7px}
+  a.btn:hover{background:#24397a}
 </style>
 </head>
 <body>
-
-<header>
-  <div class="kicker">Legal Pricing</div>
-  <h1>Pricing Assistant</h1>
-</header>
-
-<main>
-  <section class="card">
-    <h2>This tool is no longer distributed here</h2>
-    <p>
-      Thank you to everyone who came to the session and took a copy.
-    </p>
-    <p>
-      <b>If you already downloaded it, nothing changes.</b> It runs entirely on your own
-      machine, so your copy keeps working exactly as before, online or off.
-    </p>
-    <p>
-      If you would like a copy, have a question, or want to compare notes on building
-      your own, get in touch.
-    </p>
-    <a class="contact" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28"
-       target="_blank" rel="noopener noreferrer">Contact Sergey Mezhiritskiy</a>
-  </section>
-
-  <footer>Pricing Assistant &copy; 2026 Sergey Mezhiritskiy</footer>
-</main>
-
+  <div class="card">
+    <div class="kicker">Matter Budget Builder</div>
+    <h1>That page isn't here</h1>
+    <p>The link may be out of date. The download, the demo and the sample fee estimate are all on the home page.</p>
+    <!-- Absolute path: GitHub Pages serves this file for any missing path, at any depth. -->
+    <a class="btn" href="/Matter-Budget-Builderv2/">Go to the Matter Budget Builder</a>
+  </div>
 </body>
 </html>
