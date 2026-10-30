@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  Pricing Assistant
+  Matter Budget Builder
   Copyright (c) 2026 Sergey Mezhiritskiy. All rights reserved.
 
   Free to use in your own practice, including commercially, including to price
@@ -16,10 +16,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LVNX Pricing Assistant | Sergey Mezhiritskiy</title>
+<title>Matter Budget Builder | Sergey Mezhiritskiy</title>
 <meta name="author" content="Sergey Mezhiritskiy">
-<meta name="application-name" content="LVNX Pricing Assistant">
-<meta name="description" content="LVNX Pricing Assistant, built by Sergey Mezhiritskiy for LVNX.">
+<meta name="application-name" content="Matter Budget Builder">
+<meta name="description" content="Matter Budget Builder: phase-by-task legal matter budgets, built by Sergey Mezhiritskiy.">
 <!-- xlsx-js-style: SheetJS 0.18.5 fork with cell styling (same global XLSX, same API) -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
@@ -621,7 +621,7 @@ const RATE_DATA = [
 <div id="app-header">
   <div>
     <div class="firm-name" id="firm-name-display">[Law Firm Name]</div>
-    <div class="tool-label">Pricing Assistant</div>
+    <div class="tool-label">Matter Budget Builder</div>
     <div class="creator-label">Built by <a class="author-link" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a> for LVNX</div>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
@@ -634,13 +634,12 @@ const RATE_DATA = [
 <!-- First-run welcome / quick-start guide -->
 <div id="welcome-overlay" class="no-print" style="display:none;" onclick="if(event.target===this)closeWelcome()">
   <div id="welcome-modal">
-    <div id="welcome-header">Welcome to the Pricing Assistant</div>
+    <div id="welcome-header">Welcome to the Matter Budget Builder</div>
     <div id="welcome-body">
-      <p style="margin-bottom:12px;color:#38415f;">A quick tour — four steps from a client request to a polished, shareable analysis.</p>
-      <div class="welcome-step"><span class="welcome-num">1</span><div><strong>Client/Matter Setup</strong> — name the matter and pick the currency. Your firm name, letterhead, and policies are set once in <strong>Settings</strong>.</div></div>
-      <div class="welcome-step"><span class="welcome-num">2</span><div><strong>Request Parser</strong> (optional) — paste an email or note; it reads the team, hours, budget, and analysis type, then lets you review before applying.</div></div>
-      <div class="welcome-step"><span class="welcome-num">3</span><div><strong>Analysis Setup</strong> — choose an analysis (Blended, Rate Increase, Rate Proposals &amp; Ranges, Budget, Fixed Fee, or Write-off), add timekeepers or budget lines, and click Run.</div></div>
-      <div class="welcome-step"><span class="welcome-num">4</span><div><strong>Output</strong> — review the KPIs and tables, then Print/PDF, Export to Excel, or generate an email draft.</div></div>
+      <p style="margin-bottom:12px;color:#38415f;">A quick tour — three steps from a scoped matter to a client-ready budget.</p>
+      <div class="welcome-step"><span class="welcome-num">1</span><div><strong>Client/Matter Setup</strong> — name the matter and pick the currency. Your firm name, letterhead, and profit policy are set once in <strong>Settings</strong>.</div></div>
+      <div class="welcome-step"><span class="welcome-num">2</span><div><strong>Budget Setup</strong> — add the team from your rate card, lay out phases and tasks, and enter each person's hours. Or upload a budget from Excel. Then click <strong>Build Budget</strong>.</div></div>
+      <div class="welcome-step"><span class="welcome-num">3</span><div><strong>Output</strong> — review fees by phase, margin and realization, compare discount scenarios, shape the client summary, then Print/PDF, export to Excel or Word, or draft an email.</div></div>
       <p style="margin-top:12px;color:#6a7494;font-size:11px;">Every section has a <strong>“? How to use”</strong> button for details. Reopen this guide anytime with the <strong>Guide</strong> button.</p>
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
         <button class="btn btn-primary btn-sm" onclick="closeWelcome()">Get started</button>
@@ -699,17 +698,19 @@ const RATE_DATA = [
         <div class="form-group" style="align-self:center;"><div class="text-muted" style="margin-top:14px;">When an analysis falls below either threshold, its KPI card turns red and an "may require additional approval" note appears. Leave blank to disable. (Realization below X% = discount above 100−X%.)</div></div>
       </div>
 
-      <h5 style="margin-top:14px;">Write-off Policy <span class="note" style="text-transform:none;letter-spacing:0;font-weight:normal;">(CFO directive — <span id="cfg-wo-policy-hint">blank uses 20% / 10%</span>)</span></h5>
+      <h5 style="margin-top:14px;">Profit Policy <span class="note" style="text-transform:none;letter-spacing:0;font-weight:normal;">(colours the margin KPI — <span id="cfg-wo-policy-hint">blank uses 20% / 10%</span>)</span></h5>
       <div class="form-row">
         <div class="form-group narrow"><label>Target Profit %</label><input type="number" id="cfg-cfo-target" min="0" max="100" placeholder="20" style="width:100px;"></div>
         <div class="form-group narrow"><label>Profit Floor %</label><input type="number" id="cfg-cfo-floor" min="0" max="100" placeholder="10" style="width:100px;"></div>
       </div>
-      <div class="form-row">
+      <!-- Write-off only: hidden, kept so saved settings round-trip unchanged. -->
+      <div class="form-row" style="display:none;">
         <div class="form-group"><label>Write-off Disclaimer <span class="note">(blank uses the standard CFO note)</span></label><textarea id="cfg-wo-disclaimer" rows="3" placeholder="Leave blank for the standard year-end bonus / CFO directive note."></textarea></div>
       </div>
 
       <h5 style="margin-top:14px;">Output &amp; Display Defaults</h5>
-      <div class="form-row">
+      <!-- Rate proposals only: hidden, kept so saved settings round-trip unchanged. -->
+      <div class="form-row" style="display:none;">
         <div class="form-group"><label>Rate Proposal Note <span class="note">(proposal boilerplate)</span></label><textarea id="cfg-range-note" rows="2" placeholder="Leave blank for the standard proposal note."></textarea></div>
       </div>
       <div class="form-row">
@@ -794,12 +795,12 @@ const RATE_DATA = [
         </div>
       </div>
       <div class="text-muted" id="currency-note">Currency is read from the loaded rate data. No conversion is performed.</div>
-      <div class="text-muted">Show Metric switches every analysis between Realization % and Discount % (they are complements — Discount = 100 − Realization).</div>
+      <div class="text-muted">Show Metric switches the budget output between Realization % and Discount % (they are complements — Discount = 100 − Realization).</div>
     </div>
   </div>
 
   <!-- STEP 2 -->
-  <div class="card" id="parser-section">
+  <div class="card" id="parser-section" style="display:none;">
     <div class="card-header">
       <span class="step-num">2</span> Request Parser
       <span style="font-weight:normal;opacity:0.75;font-size:10px;margin-left:8px;">Optional — paste an email or request to auto-fill the setup below</span>
@@ -836,40 +837,28 @@ Examples:
 
   <!-- STEP 3 -->
   <div class="card" id="input-section">
-    <div class="card-header"><span class="step-num">3</span> Analysis Setup
+    <div class="card-header"><span class="step-num">2</span> Budget Setup
       <button class="help-btn" onclick="toggleHelp('help-step3')">? How to use</button>
     </div>
     <div class="card-body">
       <div class="help-panel" id="help-step3">
-        <strong>What this step does:</strong> choose what kind of analysis you need, build the team, then run it.
-        <ul>
-          <li><strong>Blended Rate</strong> — "what's the average hourly rate for this proposed team?" Pick timekeepers, enter hours, and get the weighted rate with discount and margin scenarios.</li>
-          <li><strong>Rate Increase</strong> — "what happens if we raise this client's rates?" Compare current vs. standard rates and model increase percentages.</li>
-          <li><strong>Rate Proposals &amp; Ranges</strong> — "what rates should we include in this pitch?" Build a pitch-ready view with market ranges by title and named key team members.</li>
-          <li><strong>Budget</strong> — "what will this work cost by phase and task?" Build phase/task budgets by timekeeper, model adjustments, and produce a client-friendly summary.</li>
-          <li><strong>Fixed Fee</strong> — "can we do this work for $500k?" Test a proposed fee against the cost of the team to see realization and margin.</li>
-          <li><strong>Write-off</strong> — "how much of this bill can we write off before profitability breaks?" Matter-level scenarios against the CFO's <span id="guide-wo-policy">20% target / 10% floor</span>.</li>
-        </ul>
+        <strong>What this step does:</strong> builds the matter budget, phase by phase.
         <ol style="margin-top:6px;">
-          <li>Select the analysis type — the right inputs appear automatically.</li>
-          <li>For team-based analyses: <strong>search and add timekeepers</strong> by name, ID, title, practice, or office, then enter each person's hours.</li>
-          <li>For Blended/Fixed Fee: use <strong>Staffing Plans</strong> to compare alternative team mixes side by side (e.g. partner-heavy vs. associate-heavy).</li>
-          <li>Click <strong>Run Analysis</strong>.</li>
+          <li><strong>Add the team.</strong> Search the rate card by name, ID, title, practice or office. Standard rates come in automatically; adjust the proposed or cost rate per person if you need to.</li>
+          <li><strong>Lay out the work.</strong> Add a row per phase and task, then enter each timekeeper's hours. Totals update as you type.</li>
+          <li><strong>Or start from Excel.</strong> Upload a file with Phase, Task, TKID or Name and Hours columns (optionally Proposed Rate and Cost Rate).</li>
+          <li>Click <strong>Build Budget</strong>.</li>
         </ol>
-        <div class="help-tip">Tip: "Customize Scenarios" lets you change the default discount tiers (10% / 20%) and margin targets (<span id="guide-scen-targets">20% / 10%</span>) before running.</div>
+        <div class="help-tip">Tip: the output prices discount scenarios automatically and lets you shape the client-facing summary — by phase or by task, with or without hours and rates — before you export.</div>
       </div>
 
       <div class="form-row" style="margin-bottom:16px;">
-        <div class="form-group" style="max-width:300px;">
+        <div class="form-group" style="max-width:300px;display:none;">
           <label>Analysis Type</label>
+          <!-- Budget-only edition: the selector stays in the DOM, fixed to budget, because
+               the shared run/export code reads it to know which analysis is active. -->
           <select id="analysis-type" onchange="switchAnalysis()">
-            <option value="">— Select an analysis type to begin —</option>
-            <option value="blended">Blended Rate Analysis</option>
-            <option value="rateIncrease">Rate Increase Analysis</option>
-            <option value="range">Rate Proposals &amp; Ranges</option>
-            <option value="budget">Budget Analysis</option>
-            <option value="fixed">Fixed Fee Analysis</option>
-            <option value="writeoff">Write-off Analysis</option>
+            <option value="budget" selected>Budget Analysis</option>
           </select>
         </div>
         <div class="form-group" style="align-self:center;padding-top:14px;">
@@ -1229,7 +1218,7 @@ Examples:
 
       <!-- Run -->
       <div style="margin-top:16px;display:none;" id="run-btn-wrap">
-        <button class="btn btn-primary" onclick="runAnalysis()">Run Analysis</button>
+        <button class="btn btn-primary" onclick="runAnalysis()">Build Budget</button>
         <button class="btn btn-secondary" style="margin-left:8px;" onclick="clearAll()">Clear All</button>
       </div>
 
@@ -1238,7 +1227,7 @@ Examples:
 
   <!-- STEP 4: Output -->
   <div id="output-section" class="card">
-    <div class="card-header no-print"><span class="step-num">4</span> Output
+    <div class="card-header no-print"><span class="step-num">3</span> Output
       <button class="help-btn" onclick="toggleHelp('help-step4')">? How to use</button>
     </div>
     <div class="card-body">
@@ -1285,7 +1274,7 @@ Examples:
 </div>
 
 <div id="app-footer" class="no-print">
-  Pricing Assistant &copy; 2026 <a href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a>
+  Matter Budget Builder &copy; 2026 <a href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a>
   &middot; free to use in your own practice &middot; not for resale, or for inclusion in a product or service sold to others.
 </div>
 
@@ -1587,6 +1576,7 @@ document.addEventListener('DOMContentLoaded', () => {
   refreshRateBadge();
   document.getElementById('firm-name-display').textContent = firmName();
   applyConfigDefaults();
+  startBudgetMode();
   maybeShowWelcome();
   checkDependencyStatus();
   window.addEventListener('load', () => setTimeout(checkDependencyStatus, 250));
@@ -3544,8 +3534,8 @@ async function writeAppFile(transform, { applyInMemory, savedMsg, downloadMsg })
     let handle;
     try {
       [handle] = await window.showOpenFilePicker({
-        id: 'pricing-assistant-save',
-        types: [{ description: 'Pricing Assistant app file', accept: {'text/html': ['.html']} }],
+        id: 'matter-budget-builder-save',
+        types: [{ description: 'Matter Budget Builder app file', accept: {'text/html': ['.html']} }],
       });
     } catch(e) {
       if (e.name === 'AbortError') return;
@@ -3554,8 +3544,8 @@ async function writeAppFile(transform, { applyInMemory, savedMsg, downloadMsg })
     }
     try {
       const pickedText = await (await handle.getFile()).text();
-      if (!pickedText.includes('// ── BEGIN RATE DATA ──') || !pickedText.includes('Law Firm Pricing Assistant')) {
-        showToast('Selected file does not look like the Pricing Assistant app — save aborted.');
+      if (!pickedText.includes('// ── BEGIN RATE DATA ──') || !pickedText.includes('Matter Budget Builder')) {
+        showToast('Selected file does not look like the Matter Budget Builder app — save aborted.');
         return;
       }
       // Re-run the transform against the freshly-picked file so we never clobber newer content
@@ -3578,7 +3568,7 @@ async function writeAppFile(transform, { applyInMemory, savedMsg, downloadMsg })
     if (newText === null) { showToast('Could not locate the app markers — save aborted to avoid corrupting the file.'); return; }
 
     const blob = new Blob([newText], {type:'text/html'});
-    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'pricing-assistantv1.html' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'matter-budget-builder.html' });
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     applyInMemory();
     showToast(downloadMsg);
@@ -3645,6 +3635,13 @@ function refreshPolicyText() {
   put('cfg-wo-policy-hint', `blank uses ${DEFAULT_CFO_TARGET}% / ${DEFAULT_CFO_FLOOR}%`);
   put('guide-wo-policy', `${t}% target / ${f}% floor`);
   put('guide-scen-targets', `${t}% / ${f}%`);
+}
+
+// Budget-only edition: open straight into the budget builder.
+function startBudgetMode() {
+  const sel = document.getElementById('analysis-type');
+  if (sel) sel.value = 'budget';
+  switchAnalysis();
 }
 
 function applyConfigDefaults() {
@@ -5281,7 +5278,7 @@ tfoot td{font-weight:bold;background:#e8ebf7;border-top:2px solid #1a2b5e;}
   <div class="email-meta"><div>${esc(RATE_DATA_VERSION)}</div><div>Generated ${dateStr}</div><div style="margin-top:3px;color:#bbb;">${esc(FIRM_CONFIG.disclaimer||'Confidential')}</div></div>
 </div>
 ${clone.innerHTML}
-<div class="email-ftr">Generated ${dateStr} · ${esc(RATE_DATA_VERSION)} · Law Firm Pricing Assistant</div>
+<div class="email-ftr">Generated ${dateStr} · ${esc(RATE_DATA_VERSION)} · Matter Budget Builder</div>
 </body></html>`;
 
   const eml = `MIME-Version: 1.0\r\nDate: ${now.toUTCString()}\r\nSubject: ${lbl}${matter?' — '+matter:''} — ${firm}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${emlHtml}`;

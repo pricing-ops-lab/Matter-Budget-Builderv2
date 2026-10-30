@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 Build a fully self-contained, offline-capable single-file build of the
-Pricing Assistant.
+Matter Budget Builder.
 
-Takes src/pricing-assistant.src.html (which loads five libraries from public
-CDNs) and produces pricing-assistant.html with every one of those libraries
+Takes src/matter-budget-builder.src.html (which loads five libraries from public
+CDNs) and produces matter-budget-builder.html with every one of those libraries
 inlined, so the file works with no network connection at all -- opened
 straight off a USB stick, a Downloads folder, or an airplane tray table.
 
@@ -35,9 +35,9 @@ import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "src" / "pricing-assistant.src.html"
+SRC = ROOT / "src" / "matter-budget-builder.src.html"
 VENDOR = ROOT / "build" / "vendor"
-OUT = ROOT / "pricing-assistant.html"
+OUT = ROOT / "matter-budget-builder.html"
 
 # CDN URL -> vendored file. Versions match the original tags exactly; these
 # files came from the npm packages the CDNs themselves publish.
