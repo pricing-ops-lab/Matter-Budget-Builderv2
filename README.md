@@ -27,6 +27,7 @@ Built by Sergey Mezhiritskiy.
 | `index.html` | The landing page: description, download, demo link, QR code. Generated. |
 | `demo.html` | Guided one-minute demo that drives the real app in a frame. Hand-written. |
 | `404.html` | Sends broken links back to the home page. Hand-written. |
+| `assets/track.js` | Anonymous visit and download counter for the site pages (never the app). Hand-written. |
 | `assets/qr.*` | QR code for the landing page: PNG and SVG, plus a captioned slide card. Generated. |
 | `assets/sample-fee-estimate.*` | The client fee estimate the demo budget exports (PDF and PNG preview). Generated. |
 | `src/matter-budget-builder.src.html` | **The source you edit.** Loads its one library from a CDN; the build inlines it. |
@@ -107,3 +108,24 @@ The bundled library keeps its own license; see
 
 The app runs wholly in the browser. It makes no network requests (the build
 enforces that), and nothing a user enters leaves their device.
+
+## Site analytics
+
+The public pages (`index.html`, `demo.html`, `404.html`) load `assets/track.js`,
+which counts visits and clicks with [GoatCounter](https://www.goatcounter.com):
+no cookies and no personal data. No third-party script is loaded either: the file
+builds the count request itself. It counts only on `*.github.io`, so local copies
+and previews send nothing. The downloaded app never includes it.
+
+| Count | When it is recorded |
+|---|---|
+| `/`, `/demo.html` | a page view (with referrer and date/time) |
+| `404 /…` | a broken link someone followed |
+| `qr-scan` | a visit through the QR code, which encodes `?src=qr` |
+| `download-app` | a click on any Download button (title: which page) |
+| `sample-pdf`, `open-demo`, `source-file`, `linkedin`, `license`, `qr-download` | clicks on those links |
+| `demo-start`, `demo-step`, `demo-finished` | use of the demo player |
+
+Dashboard: https://matter-budget-builder.goatcounter.com (site code set in
+`assets/track.js`). Downloads count clicks on the button, so a file fetched straight
+from GitHub isn't counted.

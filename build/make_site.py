@@ -86,8 +86,11 @@ def main():
     # Error correction level M (~15% recovery) is the usual choice for a
     # printed code: robust enough for a slide photographed from row 20, without
     # inflating the module count the way H would.
-    qr = segno.make(url, error="m")
+    # The QR carries ?src=qr so the site counter can tell scans from other visits.
+    qr_url = url + ("&" if "?" in url else "?") + "src=qr"
+    qr = segno.make(qr_url, error="m")
     print(f"  url        {url}")
+    print(f"  qr encodes {qr_url}")
     print(f"  qr         version {qr.version}, level {qr.error.upper()}, "
           f"{qr.symbol_size(border=0)[0]}x{qr.symbol_size(border=0)[0]} modules")
 

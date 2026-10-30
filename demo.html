@@ -104,7 +104,7 @@
   <a class="back" href="./">&larr; Back</a>
   <div class="kicker">Guided Walkthrough</div>
   <h1>Matter Budget Builder — Live Demo</h1>
-  <div class="byline">Built by <a class="author-link" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a></div>
+  <div class="byline">Built by <a class="author-link" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" data-track="linkedin" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a></div>
 </header>
 
 <main>
@@ -115,8 +115,8 @@
     <p>This walkthrough drives the full tool, which is built for a laptop. Open this
        page on a computer to watch it, or download the tool now and try it yourself.</p>
     <div class="cta-row">
-      <a class="btn btn-primary btn-lg" href="matter-budget-builder.html" download>Download the tool</a>
-      <a class="btn btn-ghost btn-lg" href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener">See a sample fee estimate</a>
+      <a class="btn btn-primary btn-lg" href="matter-budget-builder.html" download data-track="download-app">Download the tool</a>
+      <a class="btn btn-ghost btn-lg" href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener" data-track="sample-pdf">See a sample fee estimate</a>
     </div>
   </section>
 
@@ -137,8 +137,8 @@
         <div id="pdf-scroll">
           <img id="pdf-img" alt="The exported client fee estimate: fees by phase, team, assumptions and a summary table">
           <div id="pdf-actions">
-            <a class="btn btn-primary" href="assets/sample-fee-estimate.pdf" download>Download this PDF</a>
-            <a class="btn btn-ghost" href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener">Open in a new tab</a>
+            <a class="btn btn-primary" href="assets/sample-fee-estimate.pdf" download data-track="sample-pdf">Download this PDF</a>
+            <a class="btn btn-ghost" href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener" data-track="sample-pdf">Open in a new tab</a>
           </div>
         </div>
       </div>
@@ -160,17 +160,18 @@
     <h2>Every number above was computed live</h2>
     <p>The same file you download does all of this on your machine, with no internet connection.</p>
     <div class="cta-row">
-      <a class="btn btn-primary btn-lg" href="matter-budget-builder.html" download>Download the Matter Budget Builder</a>
-      <a class="btn btn-ghost btn-lg" href="assets/sample-fee-estimate.pdf" download>Download the sample fee estimate</a>
+      <a class="btn btn-primary btn-lg" href="matter-budget-builder.html" download data-track="download-app">Download the Matter Budget Builder</a>
+      <a class="btn btn-ghost btn-lg" href="assets/sample-fee-estimate.pdf" download data-track="sample-pdf">Download the sample fee estimate</a>
     </div>
   </section>
 
   <p class="note">
-    Runs entirely in your browser. The firm, matter and rate card are fictional.<br>
+    The tool runs entirely in your browser. The firm, matter and rate card are fictional.<br>
+    This site counts visits and downloads anonymously, with no cookies.<br>
     Free to use in your own practice, including commercially. Not for resale, or for
     inclusion in a product or service sold to others &mdash;
     <a href="https://github.com/pricing-ops-lab/Matter-Budget-Builderv2/blob/main/LICENSE"
-       target="_blank" rel="noopener" style="color:var(--muted)">terms</a>.
+       target="_blank" rel="noopener" data-track="license" style="color:var(--muted)">terms</a>.
   </p>
 
 </main>
@@ -178,6 +179,7 @@
 <script>
 (function () {
   "use strict";
+  if (!window.mbbTrack) window.mbbTrack = function () {};
 
   var APP_FILE = 'matter-budget-builder.html';
   var frame   = document.getElementById('app');
@@ -388,7 +390,7 @@
   STEPS.forEach(function (s, i) {
     var b = document.createElement('button');
     b.textContent = (i + 1) + '. ' + s.tab;
-    b.addEventListener('click', function () { pause(); jump(i); });
+    b.addEventListener('click', function () { pause(); jump(i); window.mbbTrack('demo-step', (i + 1) + '. ' + s.tab); });
     rail.appendChild(b);
   });
 
@@ -437,7 +439,7 @@
       await wait(s.hold);
       if (my !== token || !playing) return;
       if (i + 1 < STEPS.length) { go(i + 1, true); }
-      else { playing = false; btnPlay.textContent = 'Play again'; bar.style.width = '100%'; }
+      else { playing = false; btnPlay.textContent = 'Play again'; bar.style.width = '100%'; window.mbbTrack('demo-finished'); }
     } else {
       bar.style.transition = 'none'; bar.style.width = '0%';
     }
@@ -463,6 +465,7 @@
   function play() {
     playing = true;
     btnPlay.textContent = 'Pause';
+    if (!started) window.mbbTrack('demo-start');
     go(idx < 0 ? 0 : idx, true);
     started = true;
   }
@@ -519,6 +522,7 @@
   btnPlay.disabled = true;
 })();
 </script>
+<script src="assets/track.js" defer></script>
 
 </body>
 </html>

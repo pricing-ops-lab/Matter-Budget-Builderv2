@@ -224,7 +224,7 @@
 <header>
   <div class="kicker">Legal Pricing</div>
   <h1>Matter Budget Builder</h1>
-  <div class="byline">Built by <a class="author-link" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a></div>
+  <div class="byline">Built by <a class="author-link" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" data-track="linkedin" target="_blank" rel="noopener noreferrer">Sergey Mezhiritskiy</a></div>
 </header>
 
 <main>
@@ -237,7 +237,7 @@
     </p>
 
     <div class="dl-wrap">
-      <a class="btn-dl" href="__APP_FILE__" download id="download-link">
+      <a class="btn-dl" href="__APP_FILE__" download id="download-link" data-track="download-app">
         <svg width="17" height="17" viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <path d="M10 2.5v10m0 0 4-4m-4 4-4-4M3 14.5v1A2.5 2.5 0 0 0 5.5 18h9a2.5 2.5 0 0 0 2.5-2.5v-1"
                 stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -245,8 +245,8 @@
         Download the Matter Budget Builder
       </a>
       <div class="dl-meta">Single HTML file · __APP_SIZE__ · runs in any modern browser · best on a laptop</div>
-      <div class="demo-link"><a href="demo.html">Watch a 1-minute demo first &rarr;</a></div>
-      <div class="demo-link"><a href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener">See a sample client fee estimate (PDF) &rarr;</a></div>
+      <div class="demo-link"><a href="demo.html" data-track="open-demo">Watch a 1-minute demo first &rarr;</a></div>
+      <div class="demo-link"><a href="assets/sample-fee-estimate.pdf" target="_blank" rel="noopener" data-track="sample-pdf">See a sample client fee estimate (PDF) &rarr;</a></div>
     </div>
 
     <ul class="points">
@@ -266,9 +266,9 @@
     <div class="qr-box">__QR_SVG__</div>
     <div class="qr-url">Matter Budget Builder &middot; works offline once downloaded</div>
     <div class="qr-dl no-print">
-      <a href="assets/qr.png" download>QR as PNG</a><span>·</span>
-      <a href="assets/qr.svg" download>SVG</a><span>·</span>
-      <a href="assets/qr-card.svg" download>Slide card</a>
+      <a href="assets/qr.png" download data-track="qr-download">QR as PNG</a><span>·</span>
+      <a href="assets/qr.svg" download data-track="qr-download">SVG</a><span>·</span>
+      <a href="assets/qr-card.svg" download data-track="qr-download">Slide card</a>
     </div>
     <div id="url-warning">
       <b>Heads up — this QR points somewhere else.</b>
@@ -319,26 +319,27 @@
       The downloaded file is __APP_SIZE__, and most of that is a bundled spreadsheet library
       that will crowd an AI's context window for no benefit. Start from
       <a href="https://github.com/pricing-ops-lab/Matter-Budget-Builderv2/blob/main/src/matter-budget-builder.src.html"
-         target="_blank" rel="noopener">the source file</a> instead &mdash; the same
+         target="_blank" rel="noopener" data-track="source-file">the source file</a> instead &mdash; the same
       application, without the libraries. The rate data sits between two clearly marked
       comments so it is easy to point at.
     </div>
 
     <p class="build-body build-close">
       Build something better with it, and I would genuinely like to see it &mdash;
-      <a href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28"
+      <a href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" data-track="linkedin"
          target="_blank" rel="noopener noreferrer">tell me what you made</a>.
     </p>
   </section>
 
   <footer>
     Matter Budget Builder · built by Sergey Mezhiritskiy<br>
-    Runs locally in your browser. No data is collected or transmitted.<br>
+    The tool runs locally in your browser and sends nothing anywhere.<br>
+    This site counts visits and downloads anonymously, with no cookies.<br>
     <span class="licence">
       Free to use in your own practice, including commercially. Not for resale, or for
       inclusion in a product or service sold to others &mdash;
       <a href="https://github.com/pricing-ops-lab/Matter-Budget-Builderv2/blob/main/LICENSE"
-         target="_blank" rel="noopener">terms</a>.
+         target="_blank" rel="noopener" data-track="license">terms</a>.
     </span>
   </footer>
 
@@ -365,6 +366,7 @@
     } catch (e) { /* never let this break the page */ }
   })();
 </script>
+<script src="assets/track.js" defer></script>
 
 </body>
 </html>
