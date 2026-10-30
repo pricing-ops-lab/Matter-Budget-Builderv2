@@ -29,8 +29,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
       toolLabel: document.querySelector('.tool-label').textContent.trim(),
       welcome: document.getElementById('welcome-header').textContent.trim(),
       welcomeSteps: document.querySelectorAll('#welcome-body .welcome-step').length,
-      analysisType: document.getElementById('analysis-type').value,
-      options: [...document.getElementById('analysis-type').options].map(o=>o.value),
+      selectorGone: !document.getElementById('analysis-type'),
       budgetVisible: vis('budget-section'), runVisible: vis('run-btn-wrap'),
       runLabel: document.querySelector('#run-btn-wrap .btn-primary').textContent.trim(),
       parserVisible: vis('parser-section'),
@@ -39,7 +38,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
     };
   });
   console.log('first load:', JSON.stringify(load, null, 1));
-  if (load.analysisType!=='budget' || load.options.join()!=='budget') fail('not budget-only');
+  if (!load.selectorGone) fail('analysis selector should no longer exist');
   if (!load.budgetVisible || !load.runVisible) fail('budget setup not shown on load');
   if (load.parserVisible) fail('request parser still visible');
   if (load.otherModesVisible.length) fail('other modes visible: '+load.otherModesVisible);
@@ -91,10 +90,48 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   if (out.sections.length!==5) fail('expected the same 5 output sections');
 
   // 4. Clear All must leave the tool in budget mode
-  const cleared = await p.evaluate(() => { clearAll(); return { type:document.getElementById('analysis-type').value,
+  const cleared = await p.evaluate(() => { clearAll(); return {
     budgetVisible:getComputedStyle(document.getElementById('budget-section')).display!=='none' }; });
   console.log('after Clear All:', JSON.stringify(cleared));
-  if (cleared.type!=='budget' || !cleared.budgetVisible) fail('Clear All left budget mode');
+  if (!cleared.budgetVisible) fail('Clear All left budget mode');
+
+  // 4b. A new rate card re-prices the budget instead of leaving it on the old rates
+  const rp = await p.evaluate(() => {
+    clearAll();
+    ['TK001','TK002','TK006'].forEach(id => addBudgetTimekeeper(id));
+    addBudgetRow({ phase:'P', task:'T', hours:{ TK001:10, TK002:10, TK006:10 } });
+    const t2 = budgetTimekeepers.find(t => t.tkid === 'TK002'); t2.proposedRate = 1999;     // set by hand
+    const before = Object.fromEntries(budgetTimekeepers.map(t => [t.tkid, t.standardRate]));
+    // simulate importing a new card: TK001 and TK002 up $100, TK006 gone
+    const saved = RATE_DATA.slice();
+    RATE_DATA.forEach(t => { if (t.tkid === 'TK001' || t.tkid === 'TK002') t.standardRate += 100; });
+    RATE_DATA.splice(RATE_DATA.findIndex(t => t.tkid === 'TK006'), 1);
+    clearRateDependentSelections();
+    const after = Object.fromEntries(budgetTimekeepers.map(t => [t.tkid, { std:t.standardRate, prop:t.proposedRate }]));
+    const hoursLeft = Object.keys(budgetRows[0].hours);
+    RATE_DATA.length = 0; saved.forEach(t => RATE_DATA.push(t));
+    RATE_DATA.forEach(t => { if (t.tkid === 'TK001' || t.tkid === 'TK002') t.standardRate -= 100; });
+    return { before, after, hoursLeft };
+  });
+  console.log('rate card update:', JSON.stringify(rp));
+  if (rp.after.TK001.std !== rp.before.TK001 + 100 || rp.after.TK001.prop !== rp.before.TK001 + 100) fail('untouched proposed rate should follow the new card');
+  if (rp.after.TK002.std !== rp.before.TK002 + 100 || rp.after.TK002.prop !== 1999) fail('hand-set proposed rate should be kept');
+  if (rp.after.TK006 || rp.hoursLeft.includes('TK006')) fail('timekeeper missing from the new card should be removed with their hours');
+
+  // 4c. Switching currency drops budget timekeepers with no rate in that currency
+  const cx = await p.evaluate(() => {
+    clearAll();
+    RATE_DATA.push({ tkid:'GB01', name:'Test Barrister', title:'Associate', practice:'Lit', office:'London', standardRate:500, costRate:200, currency:'GBP' });
+    ['TK001','GB01'].forEach(id => { currency = id === 'GB01' ? 'GBP' : 'USD'; addBudgetTimekeeper(id); });
+    currency = 'USD';
+    const mixed = budgetTimekeepers.map(t => t.tkid);
+    setCurrency('GBP');
+    const left = budgetTimekeepers.map(t => t.tkid);
+    RATE_DATA.splice(RATE_DATA.findIndex(t => t.tkid === 'GB01'), 1); setCurrency('USD'); clearAll();
+    return { mixed, left };
+  });
+  console.log('currency switch:', JSON.stringify(cx));
+  if (cx.left.join() !== 'GB01') fail('switching to GBP should keep only timekeepers with GBP rates');
 
   // 5. Self-save guard still recognises this file as the app
   const src = require('fs').readFileSync(FILE,'utf8');

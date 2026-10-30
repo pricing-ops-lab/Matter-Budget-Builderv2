@@ -3,8 +3,9 @@
  * Offline self-containment test.
  *
  * Opens the built app from file:// with EVERY network request intercepted and
- * aborted, then exercises each bundled library the way the app uses it. Passes
- * only if nothing tried to reach the network and every library works.
+ * aborted, then exercises the one bundled library (XLSX) the way the app uses
+ * it. Also asserts the libraries the budget edition no longer needs (pdf.js,
+ * jsPDF) are absent, so they cannot quietly creep back into the download.
  *
  *   node tests/offline.test.js [path/to/built.html]
  */
@@ -33,44 +34,27 @@ function loadPlaywright() {
   await page.waitForTimeout(1500);
 
   const r = await page.evaluate(async () => {
-    const out = {};
-    const J = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-    out.libraries = {
-      XLSX: typeof window.XLSX, jsPDF: typeof J,
-      autoTable: J ? typeof new J().autoTable : 'n/a', pdfjsLib: typeof window.pdfjsLib,
-    };
-    try {   // xlsx round trip — the budget upload path
+    const out = { libraries: { XLSX: typeof window.XLSX, pdfjsLib: typeof window.pdfjsLib, jspdf: typeof window.jspdf } };
+    try {   // xlsx round trip — the budget upload and Excel export path
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Phase','Task','TKID','Hours'],['DD','Review','TK001',10]]), 'Budget');
       const back = XLSX.read(new Uint8Array(XLSX.write(wb, { type:'array', bookType:'xlsx' })), { type:'array' });
       out.xlsx = JSON.stringify(XLSX.utils.sheet_to_json(back.Sheets.Budget, { header:1 }));
     } catch (e) { out.xlsx = 'ERR ' + e.message; }
-    try {   // jsPDF + AutoTable
-      const d = new J(); d.autoTable({ head:[['Phase','Fees']], body:[['DD','$10,000']] });
-      out.jspdfBytes = d.output('arraybuffer').byteLength;
-    } catch (e) { out.jspdfBytes = 'ERR ' + e.message; }
-    try {   // pdf.js through the embedded worker, wired exactly as the app wires it
-      const el = document.getElementById('pdfjs-worker-src');
-      pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([el.textContent], { type:'application/javascript' }));
-      const d = new J(); d.text('Total Fees $123,456', 14, 20);
-      const doc = await pdfjsLib.getDocument({ data: new Uint8Array(d.output('arraybuffer')) }).promise;
-      const tc = await (await doc.getPage(1)).getTextContent();
-      out.pdfjs = tc.items.map(i => i.str).join(' ');
-    } catch (e) { out.pdfjs = 'ERR ' + e.message; }
+    out.workerBlock = !!document.getElementById('pdfjs-worker-src');
     return out;
   });
   await browser.close();
 
+  const size = require('fs').statSync(FILE).size;
   const checks = [
-    ['XLSX loaded',            r.libraries.XLSX === 'object'],
-    ['jsPDF loaded',           r.libraries.jsPDF === 'function'],
-    ['AutoTable attached',     r.libraries.autoTable === 'function'],
-    ['pdf.js loaded',          r.libraries.pdfjsLib === 'object'],
-    ['xlsx round trip',        r.xlsx === '[["Phase","Task","TKID","Hours"],["DD","Review","TK001",10]]'],
-    ['jsPDF produces a PDF',   typeof r.jspdfBytes === 'number' && r.jspdfBytes > 1000],
-    ['pdf.js worker parses',   /Total Fees \$123,456/.test(r.pdfjs || '')],
-    ['no network requests',    external.length === 0],
-    ['no page errors',         errors.length === 0],
+    ['XLSX loaded',                        r.libraries.XLSX === 'object'],
+    ['xlsx round trip',                    r.xlsx === '[["Phase","Task","TKID","Hours"],["DD","Review","TK001",10]]'],
+    ['pdf.js not shipped',                 r.libraries.pdfjsLib === 'undefined' && !r.workerBlock],
+    ['jsPDF not shipped',                  r.libraries.jspdf === 'undefined'],
+    [`file stays lean (${(size/1024).toFixed(0)} KB < 1 MB)`, size < 1024 * 1024],
+    ['no network requests',                external.length === 0],
+    ['no page errors',                     errors.length === 0],
   ];
   checks.forEach(([n, ok]) => console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${n}`));
   if (external.length) console.log('  attempted:', external);

@@ -82,13 +82,17 @@ def main():
     original_len = len(html)
 
     # ---- 1. Inline the four regular <script src=...> tags --------------
+    inlined = []
     for url, fname, label in SCRIPTS:
         tag = re.compile(
             r'<script[^>]*\bsrc\s*=\s*["\']' + re.escape(url) + r'["\'][^>]*>\s*</script>',
             re.I,
         )
         if not tag.search(html):
-            die(f"could not find the <script> tag for {label} ({url})")
+            # The source does not load this library, so it is not shipped.
+            print(f"  skipped  {label:<28} (not loaded by the source)")
+            continue
+        inlined.append(label)
         code = read_lib(fname)
         block = (
             f"<!-- {label} - inlined for offline use (was: {url}) -->\n"
@@ -97,49 +101,50 @@ def main():
         html = tag.sub(lambda _m, b=block: b, html, count=1)
         print(f"  inlined  {label:<28} {len(code):>9,} bytes")
 
-    # ---- 2. Inline the pdf.js worker as a Blob URL ---------------------
-    worker = read_lib(WORKER_FILE)
-    worker_block = (
-        f"<!-- pdf.js 3.4.120 worker - inlined for offline use (was: {WORKER_URL}) -->\n"
-        '<script id="pdfjs-worker-src" type="javascript/worker">\n'
-        f"{worker}\n"
-        "</script>"
-    )
-    # Park it immediately after the pdf.js main script so it is in the DOM
-    # before any code reaches for it.
-    anchor = "<!-- pdf.js 3.4.120 - inlined for offline use"
-    idx = html.find(anchor)
-    if idx < 0:
-        die("could not find the inlined pdf.js block to anchor the worker to")
-    end = html.find("</script>", idx)
-    if end < 0:
-        die("malformed inlined pdf.js block")
-    end += len("</script>")
-    html = html[:end] + "\n" + worker_block + html[end:]
-    print(f"  inlined  {'pdf.js worker':<28} {len(worker):>9,} bytes")
+    # ---- 2. Inline the pdf.js worker as a Blob URL (only if pdf.js ships) --
+    if "pdf.js 3.4.120" in inlined:
+        worker = read_lib(WORKER_FILE)
+        worker_block = (
+            f"<!-- pdf.js 3.4.120 worker - inlined for offline use (was: {WORKER_URL}) -->\n"
+            '<script id="pdfjs-worker-src" type="javascript/worker">\n'
+            f"{worker}\n"
+            "</script>"
+        )
+        # Park it immediately after the pdf.js main script so it is in the DOM
+        # before any code reaches for it.
+        anchor = "<!-- pdf.js 3.4.120 - inlined for offline use"
+        idx = html.find(anchor)
+        if idx < 0:
+            die("could not find the inlined pdf.js block to anchor the worker to")
+        end = html.find("</script>", idx)
+        if end < 0:
+            die("malformed inlined pdf.js block")
+        end += len("</script>")
+        html = html[:end] + "\n" + worker_block + html[end:]
+        print(f"  inlined  {'pdf.js worker':<28} {len(worker):>9,} bytes")
 
-    # Point pdf.js at the Blob instead of the CDN.
-    worker_assign = re.compile(
-        r"pdfjsLib\.GlobalWorkerOptions\.workerSrc\s*=\s*['\"]"
-        + re.escape(WORKER_URL)
-        + r"['\"]\s*;"
-    )
-    if not worker_assign.search(html):
-        die("could not find the pdfjsLib.GlobalWorkerOptions.workerSrc assignment")
-    replacement = (
-        "pdfjsLib.GlobalWorkerOptions.workerSrc = (function(){\n"
-        "      // Offline build: the worker lives in this file. Hand pdf.js a Blob\n"
-        "      // URL for it rather than a CDN URL. Built once and reused.\n"
-        "      if (window.__pdfWorkerBlobUrl) return window.__pdfWorkerBlobUrl;\n"
-        "      var el = document.getElementById('pdfjs-worker-src');\n"
-        "      if (!el) throw new Error('Embedded pdf.js worker is missing from this file.');\n"
-        "      var blob = new Blob([el.textContent], {type: 'application/javascript'});\n"
-        "      window.__pdfWorkerBlobUrl = URL.createObjectURL(blob);\n"
-        "      return window.__pdfWorkerBlobUrl;\n"
-        "    })();"
-    )
-    html = worker_assign.sub(lambda _m: replacement, html, count=1)
-    print("  rewired  pdf.js workerSrc -> Blob URL")
+        # Point pdf.js at the Blob instead of the CDN.
+        worker_assign = re.compile(
+            r"pdfjsLib\.GlobalWorkerOptions\.workerSrc\s*=\s*['\"]"
+            + re.escape(WORKER_URL)
+            + r"['\"]\s*;"
+        )
+        if not worker_assign.search(html):
+            die("could not find the pdfjsLib.GlobalWorkerOptions.workerSrc assignment")
+        replacement = (
+            "pdfjsLib.GlobalWorkerOptions.workerSrc = (function(){\n"
+            "      // Offline build: the worker lives in this file. Hand pdf.js a Blob\n"
+            "      // URL for it rather than a CDN URL. Built once and reused.\n"
+            "      if (window.__pdfWorkerBlobUrl) return window.__pdfWorkerBlobUrl;\n"
+            "      var el = document.getElementById('pdfjs-worker-src');\n"
+            "      if (!el) throw new Error('Embedded pdf.js worker is missing from this file.');\n"
+            "      var blob = new Blob([el.textContent], {type: 'application/javascript'});\n"
+            "      window.__pdfWorkerBlobUrl = URL.createObjectURL(blob);\n"
+            "      return window.__pdfWorkerBlobUrl;\n"
+            "    })();"
+        )
+        html = worker_assign.sub(lambda _m: replacement, html, count=1)
+        print("  rewired  pdf.js workerSrc -> Blob URL")
 
     # ---- 3. Make the self-save fallback work on file:// -----------------
     # fetch(location.href) throws on file:// (opaque origin), which would

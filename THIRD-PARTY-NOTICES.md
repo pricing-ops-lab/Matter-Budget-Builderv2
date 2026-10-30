@@ -1,25 +1,24 @@
 # Third-Party Notices
 
-`pricing-assistant.html` is a single self-contained file, which means four
-third-party libraries are compiled into it and redistributed with every copy.
-They remain under their own licenses. Nothing in this project's own license
-changes, restricts, or overrides them.
+`matter-budget-builder.html` is a single self-contained file, so the one
+third-party library it uses is compiled into it and redistributed with every
+copy. That library remains under its own license. Nothing in this project's own
+license changes, restricts, or overrides it.
 
 | Library | Version | License | Used for |
 |---|---|---|---|
-| [pdf.js](https://github.com/mozilla/pdf.js) | 3.4.120 | Apache-2.0 | reading rate cards from PDF |
-| [xlsx-js-style](https://github.com/gitbrent/xlsx-js-style) | 1.2.0 | Apache-2.0 | reading and writing .xlsx |
-| [jsPDF](https://github.com/parallax/jsPDF) | 2.5.1 | MIT | PDF export |
-| [jsPDF-AutoTable](https://github.com/simonbengtsson/jsPDF-AutoTable) | 3.5.31 | MIT | table layout in the PDF export |
+| [xlsx-js-style](https://github.com/gitbrent/xlsx-js-style) | 1.2.0 | Apache-2.0 | budget upload, rate card upload, Excel export |
 
-All four permit redistribution, including in commercial products, provided
-their copyright notices and license terms travel with the code. Those notices
-are preserved verbatim inside `pricing-assistant.html`; the full license texts
-are reproduced below, which is what Apache-2.0 section 4(a) asks for and what
-the MIT license's notice condition requires.
+It permits redistribution, including in commercial products, provided its
+copyright notice and license terms travel with the code. The notice is
+preserved verbatim inside `matter-budget-builder.html`; the full license text
+is reproduced below, which is what Apache-2.0 section 4(a) asks for.
 
-The libraries are vendored unmodified under `build/vendor/`, taken from the npm
-packages the CDNs themselves publish. No changes were made to any of them.
+The library is vendored unmodified under `build/vendor/`, taken from the npm
+package the CDN itself publishes.
+
+`build/vendor/` also holds pdf.js. It is **not** shipped in the app: the build
+uses it only to render the sample PDF to an image for the demo page.
 
 ---
 
@@ -101,32 +100,4 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-```
-
----
-
-## MIT License
-
-Applies to **jsPDF** and **jsPDF-AutoTable**, whose individual copyright lines
-are preserved in the shipped file and include, among others:
-
-    Copyright (c) 2010-2021 James Hall <james@parall.ax>
-    Copyright (c) 2023 Simon Bengtsson
-    Copyright (c) 2014 Aras Abbasi
-    Copyright (c) 2013 Eduardo Menezes de Morais
-    Copyright (c) 2014 James Robb
-    Copyright (c) 2014 Steven Spungin
-    Copyright (c) 2013 Youssef Beddad
-    Copyright (c) 2016 Jussi Utunen
-
-```
-MIT License
-
-Copyright (c) <year> <copyright holders>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
