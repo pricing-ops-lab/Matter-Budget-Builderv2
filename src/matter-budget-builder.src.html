@@ -155,8 +155,11 @@
   table.budget-table tr:nth-child(even) td { background: var(--whitesmoke); }
   table.budget-table input, table.budget-table select { font-size: 11px; padding: 4px 6px; }
   table.budget-table input[type="number"] { width: 82px; }
-  table.budget-table .w-phase { min-width: 130px; }
-  table.budget-table .w-task { min-width: 150px; }
+  table.budget-table .w-phase { min-width: 220px; }
+  table.budget-table .w-task { min-width: 240px; }
+  .tpl-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; padding: 10px 12px; background: #f5f6fb; border: 1px solid var(--border); border-radius: 3px; }
+  .tpl-pick label { font-size: 11px; font-weight: bold; color: var(--navy); margin: 0; }
+  .tpl-pick select { width: auto; min-width: 280px; max-width: 100%; }
   .budget-person-wrap { position: relative; min-width: 220px; }
   .budget-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 6px; }
   .pricing-options .scen-label { font-weight: 600; border-color: transparent; background: transparent; padding: 3px 6px; min-width: 200px; }
@@ -164,7 +167,7 @@
   .scen-controls { display: flex; gap: 4px; align-items: center; margin-top: 3px; font-size: 10px; color: #667; flex-wrap: wrap; }
   .scen-controls select { width: auto; max-width: 210px; font-size: 10px; padding: 2px 4px; }
   .scen-controls input[type="number"] { width: 84px; text-align: right; font-size: 10px; padding: 2px 4px; }
-  .scen-ref { font-size: 9px; color: var(--navy); background: #eef1fa; padding: 1px 6px; border-radius: 8px; }
+  .scen-ref { white-space: nowrap; font-size: 9px; color: var(--navy); background: #eef1fa; padding: 1px 6px; border-radius: 8px; }
   .pricing-options tr.current-row td { background: #eef1fa; }
   .narr-text { min-height: 240px; font-size: 12px; line-height: 1.5; }
   .narr-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 10px; color: #667; flex-wrap: wrap; }
@@ -600,6 +603,31 @@ const RATE_DATA = [
       <hr class="divider" style="margin:18px 0;">
 
       <div style="display:flex;align-items:center;margin-bottom:8px;">
+        <h4 style="margin-bottom:0;">Phase &amp; Task Templates</h4>
+        <button class="help-btn" onclick="toggleHelp('help-templates')">? How to use</button>
+      </div>
+      <div class="help-panel" id="help-templates">
+        <strong>Start every budget from a standard list of phases and tasks.</strong> The UTBMS Litigation Code Set is built in. To add your own:
+        <ol>
+          <li>Click <strong>Upload Template</strong> and choose an Excel or CSV file with your phase and task codes.</li>
+          <li><strong>Name the template</strong>, then confirm which columns hold the phase code, phase name, task code and task name. Codes are optional.</li>
+          <li>Check the preview, then click <strong>Add Template</strong>. It is ready to use in the budget straight away.</li>
+          <li>Click <strong>Save All Settings</strong> to keep it in the app file for everyone who opens it.</li>
+        </ol>
+        <div class="help-tip">Not sure of the layout? <strong>Download</strong> the UTBMS template, replace its rows with yours, and upload it back. A single list of codes works too: codes ending in 00 (L100) become phases and the codes under them (L110, L120) become their tasks.</div>
+      </div>
+      <div id="tpl-list"></div>
+      <div class="upload-row">
+        <input type="file" id="tpl-file-input" accept=".xlsx,.xls,.csv" onchange="handleTemplateUpload(event)" style="display:none;">
+        <label for="tpl-file-input" class="upload-lbl">Upload Template</label>
+        <span class="upload-hint">Excel or CSV with your phases and tasks. You'll name it and confirm which columns hold them.</span>
+      </div>
+      <div id="tpl-import-body"></div>
+      <div id="tpl-save-row"></div>
+
+      <hr class="divider" style="margin:18px 0;">
+
+      <div style="display:flex;align-items:center;margin-bottom:8px;">
         <h4 style="margin-bottom:0;">Rate Data Management</h4>
         <button class="help-btn" onclick="toggleHelp('help-settings')">? How to use</button>
       </div>
@@ -734,13 +762,20 @@ const RATE_DATA = [
         </div>
 
         <div class="section-label">Budget In</div>
-        <div class="text-muted" style="margin-bottom:8px;">Add phases and tasks line by line, then enter hours under each selected timekeeper. Totals calculate from the proposed rates above.</div>
+        <div class="text-muted" style="margin-bottom:8px;">Start from a phase &amp; task template or add rows line by line, then enter hours under each selected timekeeper. Rows left at zero hours are left out of the budget. Totals calculate from the proposed rates above.</div>
+        <div class="tpl-pick">
+          <label for="budget-template-select">Template</label>
+          <select id="budget-template-select"></select>
+          <button class="btn btn-primary btn-sm" id="budget-template-load" onclick="applyBudgetTemplate()">Load Template</button>
+          <span class="text-muted" style="margin:0;">Add your own in Settings → Phase &amp; Task Templates.</span>
+        </div>
         <div class="budget-toolbar">
           <input type="file" id="budget-file-input" accept=".xlsx,.xls,.csv" onchange="handleBudgetFileUpload(event)" style="display:none;">
           <label for="budget-file-input" class="btn btn-ghost btn-sm">Upload Budget File</label>
           <span class="text-muted">Expected columns: Phase, Task, TKID or Name, Hours, optional Proposed Rate / Cost Rate.</span>
           <button class="btn btn-ghost btn-sm" onclick="addBudgetRow()">+ Add Phase / Task</button>
           <button class="btn btn-ghost btn-sm" onclick="addBudgetRows(5)">+ Add 5 Rows</button>
+          <button class="btn btn-ghost btn-sm" onclick="removeEmptyBudgetRows()">Remove Empty Rows</button>
           <button class="btn btn-secondary btn-sm" onclick="clearBudgetRows()">Clear Budget</button>
         </div>
         <div class="tk-table-wrap">
@@ -1055,6 +1090,7 @@ function refreshRateBadge() {
 function openSettings() {
   refreshRateBadge();
   loadFirmConfigInputs();
+  renderTemplateSettings();
   document.getElementById('settings-overlay').style.display = 'flex';
 }
 function showWelcome() { document.getElementById('welcome-overlay').style.display = 'flex'; }
@@ -1071,6 +1107,7 @@ function maybeShowWelcome() {
 function closeSettings() {
   document.getElementById('settings-overlay').style.display = 'none';
   rateImport = null; renderRateImportUI();
+  tplImport = null; renderTemplateImport();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1329,6 +1366,7 @@ function budgetClientTaskRows(phaseGroups) {
 }
 function renderBudget() {
   syncBudgetCurrencySelect();
+  renderBudgetTemplateSelect();
   const stdTh = document.getElementById('budget-tk-std-th');
   if (stdTh) stdTh.textContent = baseLabel() + ' Rate';
   renderBudgetTimekeepers();
@@ -1366,8 +1404,8 @@ function renderBudgetMatrix() {
   tb.innerHTML = budgetRows.map((r,i) => {
     const calc = budgetRowCalc(r);
     return `<tr>
-      <td><input class="w-phase" type="text" value="${escAttr(r.phase)}" placeholder="Phase" oninput="updateBudgetRow(${i},'phase',this.value)"></td>
-      <td><input class="w-task" type="text" value="${escAttr(r.task)}" placeholder="Task" oninput="updateBudgetRow(${i},'task',this.value)"></td>
+      <td><input class="w-phase" type="text" value="${escAttr(r.phase)}" title="${escAttr(r.phase)}" placeholder="Phase" oninput="updateBudgetRow(${i},'phase',this.value)"></td>
+      <td><input class="w-task" type="text" value="${escAttr(r.task)}" title="${escAttr(r.task)}" placeholder="Task" oninput="updateBudgetRow(${i},'task',this.value)"></td>
       ${budgetTimekeepers.map(tk=>`<td class="center"><input type="number" min="0" step="0.1" value="${escAttr((r.hours&&r.hours[tk.tkid])||0)}" oninput="updateBudgetHours(${i},'${escAttr(tk.tkid)}',this.value)"></td>`).join('')}
       <td class="num" data-budget-row-hours="${i}">${calc.hours.toFixed(1)}</td>
       <td class="num" data-budget-row-fees="${i}">${curr(calc.proposedFees)}</td>
@@ -1847,6 +1885,278 @@ function exportDoc(audience, fmt) {
   }
 }
 
+// ════════════════════════════
+// PHASE & TASK TEMPLATES
+// ════════════════════════════
+// A template is a list of phase/task rows that seeds a budget. The UTBMS Litigation Code
+// Set ships built in; firms upload their own in Settings, and those are saved into this
+// file with the other settings (FIRM_CONFIG.templates). Row: {phaseCode, phase, taskCode, task}.
+const UTBMS_LITIGATION = [
+  ['L100', 'Case Assessment, Development and Administration', [
+    ['L110', 'Fact Investigation/Development'], ['L120', 'Analysis/Strategy'], ['L130', 'Experts/Consultants'],
+    ['L140', 'Document/File Management'], ['L150', 'Budgeting'], ['L160', 'Settlement/Non-Binding ADR'],
+    ['L190', 'Other Case Assessment, Development and Administration']]],
+  ['L200', 'Pre-Trial Pleadings and Motions', [
+    ['L210', 'Pleadings'], ['L220', 'Preliminary Injunctions/Provisional Remedies'], ['L230', 'Court Mandated Conferences'],
+    ['L240', 'Dispositive Motions'], ['L250', 'Other Written Motions and Submissions'], ['L260', 'Class Action Certification and Notice']]],
+  ['L300', 'Discovery', [
+    ['L310', 'Written Discovery'], ['L320', 'Document Production'], ['L330', 'Depositions'],
+    ['L340', 'Expert Discovery'], ['L350', 'Discovery Motions'], ['L390', 'Other Discovery']]],
+  ['L400', 'Trial Preparation and Trial', [
+    ['L410', 'Fact Witnesses'], ['L420', 'Expert Witnesses'], ['L430', 'Written Motions and Submissions'],
+    ['L440', 'Other Trial Preparation and Support'], ['L450', 'Trial and Hearing Attendance'],
+    ['L460', 'Post-Trial Motions and Submissions'], ['L470', 'Enforcement']]],
+  ['L500', 'Appeal', [
+    ['L510', 'Appellate Motions and Submissions'], ['L520', 'Appellate Briefs'], ['L530', 'Oral Argument']]],
+];
+const BUILTIN_TEMPLATES = [{
+  id: 'utbms-litigation', builtin: true, name: 'UTBMS Litigation Code Set (L100–L500)', source: 'ABA / LEDES UTBMS',
+  rows: UTBMS_LITIGATION.flatMap(([pc, pn, tasks]) => tasks.map(([tc, tn]) => ({ phaseCode:pc, phase:pn, taskCode:tc, task:tn }))),
+}];
+const TEMPLATE_MAX_ROWS = 500;
+let templatesDirty = false;     // uploaded or deleted since the last save to file
+let tplImport = null;           // an upload waiting for its name and column mapping
+
+function uploadedTemplates() { return Array.isArray(FIRM_CONFIG.templates) ? FIRM_CONFIG.templates : []; }
+function allTemplates() { return [...BUILTIN_TEMPLATES, ...uploadedTemplates()]; }
+function findTemplate(id) { return allTemplates().find(t => t.id === id); }
+function codeLabel(code, name) { return [code, name].map(s => String(s || '').trim()).filter(Boolean).join(' '); }
+function templateStats(t) {
+  const phases = new Set(t.rows.map(r => codeLabel(r.phaseCode, r.phase)));
+  return { phases: phases.size, tasks: t.rows.filter(r => r.task || r.taskCode).length };
+}
+
+// ── Settings: the template list ──
+function renderTemplateSettings() {
+  const list = document.getElementById('tpl-list');
+  if (list) {
+    list.innerHTML = `<table class="map-table"><thead><tr><th>Template</th><th>Phases</th><th>Tasks</th><th>Source</th><th></th></tr></thead><tbody>` +
+      allTemplates().map(t => { const s = templateStats(t); return `<tr>
+        <td><strong>${esc(t.name)}</strong>${t.builtin ? ' <span class="scen-ref">built in</span>' : ''}</td>
+        <td>${s.phases}</td><td>${s.tasks}</td>
+        <td>${esc(t.source || '')}${t.added ? ` · ${esc(new Date(t.added).toLocaleDateString('en-US'))}` : ''}</td>
+        <td style="white-space:nowrap;text-align:right;">
+          <button class="btn-copy" onclick="downloadTemplate('${escAttr(t.id)}')" title="Download as Excel — edit it and upload it back as your own">Download</button>
+          ${t.builtin ? '' : `<button class="btn-copy" onclick="deleteTemplate('${escAttr(t.id)}')">Delete</button>`}
+        </td></tr>`; }).join('') + `</tbody></table>`;
+  }
+  const save = document.getElementById('tpl-save-row');
+  if (save) save.innerHTML = templatesDirty
+    ? `<div class="notice notice-warn" style="margin-top:8px;">Template changes are in use now, but not yet saved into the file.
+         <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="saveAllSettings()">Save All Settings</button></div>` : '';
+  renderBudgetTemplateSelect();
+}
+function deleteTemplate(id) {
+  const t = uploadedTemplates().find(x => x.id === id); if (!t) return;
+  if (!confirm(`Delete the template "${t.name}"? Budgets already built from it keep their rows.`)) return;
+  FIRM_CONFIG.templates = uploadedTemplates().filter(x => x.id !== id);
+  templatesDirty = true; renderTemplateSettings();
+}
+function downloadTemplate(id) {
+  const t = findTemplate(id); if (!t) return;
+  if (!requireDeps(['XLSX'], 'Template download')) return;
+  const ws = XLSX.utils.aoa_to_sheet([['Phase Code', 'Phase', 'Task Code', 'Task'],
+    ...t.rows.map(r => [r.phaseCode, r.phase, r.taskCode, r.task].map(v => safeExcel(txt(v))))]);
+  ws['!cols'] = [{ wch: 11 }, { wch: 44 }, { wch: 11 }, { wch: 44 }];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, `${t.name.replace(/[^\w]+/g, '_').replace(/^_|_$/g, '').slice(0, 50) || 'Template'}.xlsx`);
+}
+
+// ── Settings: upload, name, confirm columns ──
+function handleTemplateUpload(event) {
+  if (!requireDeps(['XLSX'], 'Template import')) { event.target.value = ''; return; }
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+        .map(r => r.map(v => String(v == null ? '' : v).trim()));
+      const width = Math.max(0, ...data.map(r => r.length));
+      if (!data.some(r => r.some(Boolean)) || !width) { showToast('That file looks empty.'); return; }
+      const first = data.findIndex(r => r.some(Boolean));
+      const hasHeader = data[first].some(c => /phase|task|code|description|activity|name|title/i.test(c));
+      tplImport = { fileName: file.name, data, first, width, hasHeader,
+        name: file.name.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim() || 'My template' };
+      tplImport.map = guessTemplateMap();
+      renderTemplateImport();
+    } catch (err) {
+      console.error(err); showToast('Could not read that file. Upload an Excel (.xlsx/.xls) or CSV file.');
+    } finally { event.target.value = ''; }
+  };
+  reader.readAsBinaryString(file);
+}
+function tplHeaders() {
+  const imp = tplImport, letters = i => (i >= 26 ? String.fromCharCode(64 + Math.floor(i / 26)) : '') + String.fromCharCode(65 + i % 26);
+  return Array.from({ length: imp.width }, (_, i) => {
+    const h = imp.hasHeader ? imp.data[imp.first][i] : '';
+    return h ? `${h} (column ${letters(i)})` : `Column ${letters(i)}`;
+  });
+}
+function tplBodyRows() { return tplImport.data.slice(tplImport.first + (tplImport.hasHeader ? 1 : 0)); }
+const CODE_RE = /^([A-Za-z]{1,2}\d{2,4}(?:\.\d+)?)$/;
+const CODE_PREFIX_RE = /^([A-Za-z]{1,2}\d{2,4}(?:\.\d+)?)\b[\s\-–—:.]*(\S.*)$/;
+function guessTemplateMap() {
+  const imp = tplImport, m = { phaseCode: -1, phase: -1, taskCode: -1, task: -1 };
+  if (imp.hasHeader) {
+    const h = imp.data[imp.first].map(s => s.toLowerCase());
+    const find = (re, not) => h.findIndex((x, i) => re.test(x) && !(not && not.test(x)) && !Object.values(m).includes(i));
+    m.phaseCode = find(/phase.*(code|no|num|#|id)\b|^phase\s*code/);
+    m.taskCode  = find(/task.*(code|no|num|#|id)\b|^task\s*code/);
+    m.phase     = find(/phase|stage|work\s*stream/, /code/);
+    m.task      = find(/task|activity|sub.?phase/, /code/);
+    if (m.phase < 0 && m.task < 0) {                    // one list: "Code" + "Description"
+      m.phaseCode = m.phaseCode >= 0 ? m.phaseCode : find(/code/);
+      m.phase = find(/description|name|title|label/);
+    }
+  }
+  if (Object.values(m).every(v => v < 0)) {           // no recognisable headers: look at the cells
+    const rows = tplBodyRows().slice(0, 40);
+    const codeCols = [...Array(imp.width).keys()].filter(c => rows.filter(r => CODE_RE.test(r[c] || '')).length >= rows.length * 0.6);
+    const textCols = [...Array(imp.width).keys()].filter(c => !codeCols.includes(c) && rows.some(r => r[c]));
+    if (codeCols.length >= 2 && textCols.length >= 2) Object.assign(m, { phaseCode: codeCols[0], phase: textCols[0], taskCode: codeCols[1], task: textCols[1] });
+    else if (codeCols.length === 1 && textCols.length) Object.assign(m, { phaseCode: codeCols[0], phase: textCols[0] });
+    else { m.phase = textCols[0] ?? 0; if (textCols.length > 1) m.task = textCols[1]; }
+  }
+  return m;
+}
+// Turn the mapped columns into template rows. Handles three common layouts:
+//   separate phase and task columns (blank phase cells repeat the phase above, as merged cells do);
+//   one code list, UTBMS style, where codes ending in 00 are phases and the rest are their tasks;
+//   codes typed in front of the names ("L110 Fact Investigation").
+function buildTemplateRows() {
+  const m = tplImport.map, rows = [], warnings = [];
+  const cell = (r, c) => (c >= 0 ? (r[c] || '') : '');
+  const split = (code, name) => {
+    if (!code) { const x = name.match(CODE_PREFIX_RE); if (x) return [x[1].toUpperCase(), x[2].trim()]; }
+    return [code, name];
+  };
+  const body = tplBodyRows();
+  const parsed = body.map(r => {
+    const [pc, pn] = split(cell(r, m.phaseCode), cell(r, m.phase));
+    const [tc, tn] = split(cell(r, m.taskCode), cell(r, m.task));
+    return { pc, pn, tc, tn };
+  }).filter(x => x.pc || x.pn || x.tc || x.tn);
+  const noTaskCols = m.taskCode < 0 && m.task < 0;
+  const isPhaseCode = c => /^[A-Za-z]{1,2}\d00$/.test(c);
+  const hierarchical = noTaskCols && parsed.some(x => isPhaseCode(x.pc)) && parsed.some(x => x.pc && !isPhaseCode(x.pc));
+  let cur = null;
+  parsed.forEach((x, i) => {
+    if (hierarchical) {
+      if (isPhaseCode(x.pc)) { cur = { code: x.pc, name: x.pn }; rows.push({ phaseCode: cur.code, phase: cur.name, taskCode: '', task: '', _phaseOnly: true }); return; }
+      if (!cur || cur.code.slice(0, -2) !== x.pc.slice(0, x.pc.length - 2)) warnings.push(`${x.pc || x.pn}: no matching ${x.pc ? x.pc.slice(0, -2) + '00' : ''} phase above it`);
+      rows.push({ phaseCode: cur ? cur.code : '', phase: cur ? cur.name : 'Unassigned', taskCode: x.pc, task: x.pn });
+      return;
+    }
+    if (x.pc || x.pn) cur = { code: x.pc, name: x.pn };
+    if (!cur) { warnings.push(`Row ${i + 1}: a task with no phase above it was skipped`); return; }
+    if (x.tc || x.tn) rows.push({ phaseCode: cur.code, phase: cur.name, taskCode: x.tc, task: x.tn });
+    else rows.push({ phaseCode: cur.code, phase: cur.name, taskCode: '', task: '', _phaseOnly: true });
+  });
+  // A phase-only line is kept only when that phase has no tasks of its own.
+  const withTasks = new Set(rows.filter(r => !r._phaseOnly).map(r => codeLabel(r.phaseCode, r.phase)));
+  const seen = new Set();
+  const out = rows.filter(r => {
+    const key = codeLabel(r.phaseCode, r.phase) + '|' + codeLabel(r.taskCode, r.task);
+    if (seen.has(key)) return false; seen.add(key);
+    return !(r._phaseOnly && withTasks.has(codeLabel(r.phaseCode, r.phase)));
+  }).map(({ _phaseOnly, ...r }) => r);
+  if (out.length > TEMPLATE_MAX_ROWS) warnings.push(`Only the first ${TEMPLATE_MAX_ROWS} rows are kept.`);
+  return { rows: out.slice(0, TEMPLATE_MAX_ROWS), warnings, hierarchical };
+}
+function renderTemplateImport() {
+  const body = document.getElementById('tpl-import-body'); if (!body) return;
+  if (!tplImport) { body.innerHTML = ''; return; }
+  const imp = tplImport, headers = tplHeaders();
+  const opts = sel => `<option value="-1">— Not used —</option>` + headers.map((h, i) => `<option value="${i}"${sel === i ? ' selected' : ''}>${esc(h)}</option>`).join('');
+  const FIELDS = [['phaseCode', 'Phase code'], ['phase', 'Phase name'], ['taskCode', 'Task code'], ['task', 'Task name']];
+  const hasPhase = imp.map.phase >= 0 || imp.map.phaseCode >= 0;
+  const res = hasPhase ? buildTemplateRows() : { rows: [], warnings: [] };
+  const t = { rows: res.rows }, st = templateStats(t);
+  const preview = res.rows.length ? `<table class="map-table" id="tpl-preview"><thead><tr><th>Phase</th><th>Task</th></tr></thead><tbody>` +
+    res.rows.slice(0, 10).map(r => `<tr><td>${esc(codeLabel(r.phaseCode, r.phase))}</td><td>${esc(codeLabel(r.taskCode, r.task)) || '<span class="text-muted">(phase only)</span>'}</td></tr>`).join('') +
+    `</tbody></table>${res.rows.length > 10 ? `<div class="text-muted">…and ${res.rows.length - 10} more row(s).</div>` : ''}` : '';
+  body.innerHTML = `
+    <div class="form-row" style="margin-top:10px;">
+      <div class="form-group" style="max-width:340px;"><label>Template name<span class="map-required">*</span></label>
+        <input type="text" id="tpl-import-name" value="${escAttr(imp.name)}" oninput="tplImport.name=this.value"></div>
+      <div class="form-group" style="align-self:flex-end;"><label class="check-opt" style="display:inline-flex;">
+        <input type="checkbox" id="tpl-import-header" ${imp.hasHeader ? 'checked' : ''} onchange="tplImport.hasHeader=this.checked;tplImport.map=guessTemplateMap();renderTemplateImport()"> First row is column headings</label></div>
+    </div>
+    <h5>Which columns hold the phases and tasks?</h5>
+    <table class="map-table"><thead><tr><th>Template field</th><th>Column in ${esc(imp.fileName)}</th></tr></thead><tbody>
+      ${FIELDS.map(([k, l]) => `<tr><td>${l}${k === 'phase' ? '<span class="map-required">*</span>' : ''}</td>
+        <td><select id="tpl-map-${k}" onchange="tplImport.map['${k}']=+this.value;renderTemplateImport()">${opts(imp.map[k])}</select></td></tr>`).join('')}
+    </tbody></table>
+    <div class="text-muted" style="margin-top:4px;">Codes are optional. Blank phase cells repeat the phase above. A single code list works too: codes ending in 00 become phases and the codes under them become their tasks.</div>
+    ${!hasPhase ? `<div class="notice notice-warn" style="margin-top:8px;">Choose the column that holds the phase names (or phase codes).</div>` : `
+      <div class="notice notice-info" style="margin-top:10px;" id="tpl-import-summary"><strong>${st.phases} phase${st.phases === 1 ? '' : 's'}, ${st.tasks} task${st.tasks === 1 ? '' : 's'}</strong>${res.hierarchical ? ' · read as a code list (x00 codes are phases)' : ''}</div>
+      ${preview}
+      ${res.warnings.length ? `<div class="map-warn-list">${res.warnings.slice(0, 20).map(esc).join('<br>')}${res.warnings.length > 20 ? '<br>…' : ''}</div>` : ''}`}
+    <div style="margin-top:10px;">
+      <button class="btn btn-primary btn-sm" id="tpl-import-add" ${res.rows.length ? '' : 'disabled'} onclick="confirmTemplateImport()">Add Template</button>
+      <button class="btn btn-secondary btn-sm" onclick="tplImport=null;renderTemplateImport()">Cancel</button>
+    </div>`;
+}
+function confirmTemplateImport() {
+  if (!tplImport) return;
+  const name = String(tplImport.name || '').trim();
+  if (!name) { showToast('Give the template a name first.'); return; }
+  const { rows } = buildTemplateRows();
+  if (!rows.length) { showToast('No phases were found with these columns.'); return; }
+  const list = uploadedTemplates();
+  if (BUILTIN_TEMPLATES.some(t => t.name.toLowerCase() === name.toLowerCase())) { showToast('That name is taken by a built-in template.'); return; }
+  const same = list.find(t => t.name.toLowerCase() === name.toLowerCase());
+  if (same && !confirm(`A template called "${same.name}" already exists. Replace it?`)) return;
+  const tpl = { id: same ? same.id : 'tpl-' + Date.now().toString(36), name, source: tplImport.fileName, added: new Date().toISOString(), rows };
+  FIRM_CONFIG.templates = same ? list.map(t => (t.id === same.id ? tpl : t)) : [...list, tpl];
+  tplImport = null; templatesDirty = true;
+  renderTemplateImport(); renderTemplateSettings();
+  showToast(`Template "${name}" added. It's ready to use in the budget; Save All Settings keeps it in the file.`);
+}
+
+// ── Budget: pick a template ──
+function renderBudgetTemplateSelect() {
+  const sel = document.getElementById('budget-template-select'); if (!sel) return;
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">Choose a phase &amp; task template…</option>` +
+    allTemplates().map(t => { const s = templateStats(t); return `<option value="${escAttr(t.id)}">${esc(t.name)} — ${s.phases} phases, ${s.tasks} tasks</option>`; }).join('');
+  if (prev && findTemplate(prev)) sel.value = prev;
+}
+// Loads the template's rows into the hours matrix. Hours already entered against a phase
+// and task the template also has are kept; anything else is replaced, after asking.
+function applyBudgetTemplate() {
+  const sel = document.getElementById('budget-template-select');
+  const t = sel && findTemplate(sel.value);
+  if (!t) { showToast('Choose a template first.'); return; }
+  syncBudgetInputs();
+  const hasHours = r => Object.values(r.hours || {}).some(h => +h > 0);
+  const key = (p, k) => p + '\u0000' + k;
+  const existing = new Map(budgetRows.map(r => [key(r.phase, r.task), r]));
+  const next = t.rows.map(r => {
+    const phase = codeLabel(r.phaseCode, r.phase), task = codeLabel(r.taskCode, r.task);
+    const old = existing.get(key(phase, task));
+    return { phase, task, hours: old ? { ...(old.hours || {}) } : {} };
+  });
+  const kept = new Set(next.map(r => key(r.phase, r.task)));
+  const dropped = budgetRows.filter(r => hasHours(r) && !kept.has(key(r.phase, r.task)));
+  if (dropped.length && !confirm(`Load "${t.name}"? ${dropped.length} current row${dropped.length === 1 ? '' : 's'} with hours ` +
+      `${dropped.length === 1 ? 'is' : 'are'} not in this template and will be removed. Rows it shares keep their hours.`)) return;
+  budgetRows = next;
+  const phases = new Set(next.map(r => r.phase));
+  Object.keys(budgetPhaseOverrides).forEach(p => { if (!phases.has(p)) delete budgetPhaseOverrides[p]; });
+  renderBudgetMatrix(); refreshBudgetOutput(0);
+  showToast(`Loaded ${next.length} rows from "${t.name}".${budgetTimekeepers.length ? '' : ' Add timekeepers above, then enter hours.'}`);
+}
+function removeEmptyBudgetRows() {
+  syncBudgetInputs();
+  const before = budgetRows.length;
+  budgetRows = budgetRows.filter(r => Object.values(r.hours || {}).some(h => +h > 0));
+  renderBudgetMatrix(); refreshBudgetOutput(0);
+  showToast(before === budgetRows.length ? 'No empty rows to remove.' : `Removed ${before - budgetRows.length} row(s) with no hours.`);
+}
+
 function handleRateMasterUpload(event) {
   if (!requireDeps(['XLSX'], 'Rate master import')) { event.target.value = ''; return; }
   const file = event.target.files[0];
@@ -2207,7 +2517,8 @@ function spliceFirmConfig(text, cfg) {
   if (beginIdx < 0 || endIdx < 0 || endIdx < beginIdx) return null;
   const before = text.slice(0, beginIdx);
   const after  = text.slice(endIdx + endMarker.length);
-  const block  = beginMarker + '\nlet FIRM_CONFIG = ' + JSON.stringify(cfg) + ';\n' + endMarker;
+  // '<' escaped so text from an uploaded template can never close this <script> block.
+  const block  = beginMarker + '\nlet FIRM_CONFIG = ' + JSON.stringify(cfg).replace(/</g, '\\u003c') + ';\n' + endMarker;
   return before + block + after;
 }
 // Reads every Settings field into a config object (one collection point = one-click save of all).
@@ -2226,6 +2537,7 @@ function collectFirmConfig() {
     defaultMetric: (document.getElementById('cfg-default-metric')||{}).value === 'discount' ? 'discount' : '',
     defaultBasis: (document.getElementById('cfg-default-basis')||{}).value === 'premium' ? 'premium' : '',
     costRates: (document.getElementById('cfg-cost-rates')||{}).value === 'hide' ? 'hide' : '',
+    templates: uploadedTemplates(),
     updated: new Date().toISOString(),
   };
 }
@@ -2266,6 +2578,8 @@ async function saveAllSettings() {
     {
       applyInMemory() {
         FIRM_CONFIG = cfg;
+        templatesDirty = false;
+        renderTemplateSettings();
         refreshPolicyText();
         document.getElementById('firm-name-display').textContent = firmName();
         if (ratePayload) {
@@ -2617,7 +2931,8 @@ function exportExcel() {
 
 function xlBudget(IN, SM, F) {
   const r = lastResult, bl = r.bl || baseLabel();
-  const team = r.budgetTimekeepers || [], mrows = r.budgetRows || [];
+  // Rows left at zero hours (e.g. unused template tasks) stay out of the workbook, as they do on screen.
+  const team = r.budgetTimekeepers || [], mrows = (r.budgetRows || []).filter(b => Object.values(b.hours || {}).some(h => +h > 0));
   const nTK = team.length;
 
   IN.section('Team & Rates');

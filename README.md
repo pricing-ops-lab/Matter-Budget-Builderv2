@@ -3,8 +3,9 @@
 A legal matter budgeting tool that runs entirely in the browser, as a **single
 self-contained HTML file**. No install, no server, no account, no network.
 
-- **Budget by phase and task:** pick the team from a rate card, enter hours per
-  timekeeper, and get fees at standard and proposed rates, the blended rate,
+- **Budget by phase and task:** start from a phase and task template (the UTBMS
+  Litigation Code Set is built in; firms upload their own from Excel in Settings),
+  pick the team from a rate card, enter hours per timekeeper, and get fees at standard and proposed rates, the blended rate,
   realization and profit margin.
 - **Default pricing options:** standard rates, 5/10/15% discounts, a fixed fee
   with contingency, the fee at the target margin and the walk-away fee at the
@@ -61,6 +62,7 @@ node tests/static.test.js    # every element id the code looks up exists
 node tests/offline.test.js   # bundled library works, nothing is fetched
 node tests/budget.test.js    # known budget to the dollar, pricing options, narratives
 node tests/ui.test.js        # real controls, every export, uploads, Clear All
+node tests/templates.test.js # UTBMS template, template upload and mapping, save to file
 ```
 
 `budget.test.js` and `ui.test.js` also check that client documents contain no
@@ -76,6 +78,18 @@ Plain `<a href>` links are allowed because nothing loads until someone clicks.
 It also patches the "save settings back into the app file" fallback, which read
 the app's own source with `fetch(location.href)`. Browsers block that on `file://`
 URLs, so it falls back to a file picker.
+
+## Phase and task templates
+
+Settings → Phase & Task Templates lists the built-in UTBMS Litigation Code Set
+(L100–L500, 29 tasks) and any uploaded templates. **Upload Template** takes an Excel
+or CSV file; you name it and confirm which columns hold the phase code, phase name,
+task code and task name. It understands three layouts: separate phase and task
+columns (blank phase cells repeat the phase above), a single UTBMS-style code list
+(x00 codes are phases), and codes typed in front of names. **Save All Settings**
+writes uploaded templates into the app file (`FIRM_CONFIG.templates`), so they travel
+with it. In the budget, **Load Template** fills the hours matrix. Rows left at zero
+hours stay out of every output, and **Remove Empty Rows** clears them from the matrix.
 
 ## Updating rate data
 
