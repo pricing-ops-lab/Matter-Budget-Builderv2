@@ -650,18 +650,6 @@ const RATE_DATA = [
 </div>
 
 <!-- Rate Increase import: column mapping modal -->
-<div id="ri-import-overlay" class="no-print" style="display:none;" onclick="if(event.target===this)cancelRIImport()">
-  <div id="settings-modal" style="width:680px;">
-    <div id="settings-modal-header">
-      <span>Map Columns — Rate Increase Import</span>
-      <button class="btn-copy" onclick="cancelRIImport()" style="font-size:14px;padding:2px 8px;">×</button>
-    </div>
-    <div id="settings-modal-body">
-      <p class="text-muted" style="margin-bottom:10px;">Confirm which column in <strong id="ri-import-filename"></strong> holds each value. This is matched by header name automatically — adjust anything that looks wrong before importing.</p>
-      <div id="ri-import-body"></div>
-    </div>
-  </div>
-</div>
 
 <!-- Settings modal -->
 <div id="settings-overlay" class="no-print" style="display:none;" onclick="if(event.target===this)closeSettings()">
@@ -703,16 +691,8 @@ const RATE_DATA = [
         <div class="form-group narrow"><label>Target Profit %</label><input type="number" id="cfg-cfo-target" min="0" max="100" placeholder="20" style="width:100px;"></div>
         <div class="form-group narrow"><label>Profit Floor %</label><input type="number" id="cfg-cfo-floor" min="0" max="100" placeholder="10" style="width:100px;"></div>
       </div>
-      <!-- Write-off only: hidden, kept so saved settings round-trip unchanged. -->
-      <div class="form-row" style="display:none;">
-        <div class="form-group"><label>Write-off Disclaimer <span class="note">(blank uses the standard CFO note)</span></label><textarea id="cfg-wo-disclaimer" rows="3" placeholder="Leave blank for the standard year-end bonus / CFO directive note."></textarea></div>
-      </div>
 
       <h5 style="margin-top:14px;">Output &amp; Display Defaults</h5>
-      <!-- Rate proposals only: hidden, kept so saved settings round-trip unchanged. -->
-      <div class="form-row" style="display:none;">
-        <div class="form-group"><label>Rate Proposal Note <span class="note">(proposal boilerplate)</span></label><textarea id="cfg-range-note" rows="2" placeholder="Leave blank for the standard proposal note."></textarea></div>
-      </div>
       <div class="form-row">
         <div class="form-group w120"><label>Default Metric</label><select id="cfg-default-metric"><option value="">Realization %</option><option value="discount">Discount %</option></select></div>
         <div class="form-group w120"><label>Default Rate Basis</label><select id="cfg-default-basis"><option value="">Standard</option><option value="premium">Premium</option></select></div>
@@ -799,41 +779,6 @@ const RATE_DATA = [
     </div>
   </div>
 
-  <!-- STEP 2 -->
-  <div class="card" id="parser-section" style="display:none;">
-    <div class="card-header">
-      <span class="step-num">2</span> Request Parser
-      <span style="font-weight:normal;opacity:0.75;font-size:10px;margin-left:8px;">Optional — paste an email or request to auto-fill the setup below</span>
-      <button class="help-btn" onclick="toggleHelp('help-step2')">? How to use</button>
-    </div>
-    <div class="card-body">
-      <div class="help-panel" id="help-step2">
-        <strong>What this step does:</strong> reads a pasted email or request and fills in Step 3 for you. It's optional — you can always set everything up manually below.
-        <ol>
-          <li><strong>Paste</strong> the request (an email excerpt, a note from a partner, anything) into the box.</li>
-          <li>Click <strong>Parse</strong>. The tool detects the analysis type, team make-up ("2 equity partners", "3 associates"), hours, budget amounts, currency, and matter names.</li>
-          <li><strong>Review the summary</strong> that appears under the box — it lists exactly what was detected and added.</li>
-          <li>Adjust anything in Step 3 — parsed values are a starting point, not a final answer.</li>
-        </ol>
-        <div class="help-tip">Example: "Blended rate for 2 equity partners at 60 hrs and 3 associates at 120 hrs each" selects Blended Rate Analysis and adds all five timekeepers with their hours filled in.</div>
-      </div>
-      <div class="parser-grid">
-        <textarea id="parse-input" placeholder="Paste a request, email excerpt, or notes here.
-
-Examples:
-  • Blended rate for 2 equity partners at 60 hrs and 3 associates at 120 hrs.
-  • Fixed fee engagement — 1 EP, 2 NEPs, 4 associates. Budget $750k.
-  • Rate increase analysis for our Litigation team."></textarea>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <button class="btn btn-primary" onclick="parseRequest()">Parse</button>
-          <button class="btn btn-secondary btn-sm" onclick="clearParser()">Clear</button>
-        </div>
-      </div>
-      <div id="parse-result" class="parse-result"></div>
-      <div id="parse-review"></div>
-      <div class="text-muted">Detects: analysis type · timekeeper titles &amp; counts ("2 EPs", "a couple of partners", "half a dozen associates") · hours · budget · office &amp; practice. Everything is shown for review before it's applied.</div>
-    </div>
-  </div>
 
   <!-- STEP 3 -->
   <div class="card" id="input-section">
@@ -877,207 +822,8 @@ Examples:
       </div>
 
       <!-- TK selector (blended / rateIncrease / fixed) -->
-      <div id="tk-selector-section" style="display:none;">
-        <div class="section-label">Timekeeper Selection</div>
-
-        <!-- Staffing plans (blended / fixed) -->
-        <div id="plan-bar" style="display:none;">
-          <span style="font-size:11px;font-weight:600;color:#5a6075;">Staffing Plans:</span>
-          <span id="plan-pills" style="display:inline-flex;gap:6px;flex-wrap:wrap;"></span>
-          <button class="btn btn-ghost btn-sm" onclick="addPlan()">+ Add Plan</button>
-          <span class="text-muted" style="margin-left:2px;">Compare alternative staffing mixes side by side.</span>
-        </div>
-
-        <!-- File upload (rate increase only) -->
-        <div id="ri-upload-row" class="upload-row" style="display:none;">
-          <input type="file" id="rate-file-input" accept=".xlsx,.xls,.csv" onchange="handleRateFileUpload(event)">
-          <label for="rate-file-input" class="upload-lbl">Import from Excel / CSV</label>
-          <span class="upload-hint">You'll confirm which column is Current Rate, Hours, etc. before anything imports — works with any header names (e.g. "Client Discounted Rate").</span>
-        </div>
-
-        <!-- Rate increase options (weighting + proposed input mode) -->
-        <div id="ri-options" style="display:none;margin-top:10px;padding:12px 14px;background:#f7f9fd;border:1px solid var(--border-soft);border-radius:6px;">
-          <div class="form-row" style="margin-bottom:4px;align-items:flex-start;gap:32px;">
-            <div>
-              <label style="margin-bottom:6px;">Weighting Basis</label>
-              <div class="check-group">
-                <label class="check-opt"><input type="radio" name="ri-weight" value="hours" checked onchange="setRIWeightMode('hours')"> Hours</label>
-                <label class="check-opt"><input type="radio" name="ri-weight" value="mix" onchange="setRIWeightMode('mix')"> % Allocation</label>
-              </div>
-            </div>
-            <div>
-              <label style="margin-bottom:6px;">Row-Level Proposed Increase</label>
-              <div class="check-group">
-                <label class="check-opt"><input type="radio" name="ri-prop" value="pct" checked onchange="setRIPropMode('pct')"> % increase over current</label>
-                <label class="check-opt"><input type="radio" name="ri-prop" value="rate" onchange="setRIPropMode('rate')"> Proposed rate ($)</label>
-              </div>
-            </div>
-          </div>
-          <div class="text-muted">Adjust hours or the % allocation per timekeeper before running. The Proposed column sets a per-timekeeper increase; the scenario percentages below apply across the board for comparison.</div>
-        </div>
-
-        <!-- Rate Increase: bulk rules — seed proposed rates/increases across matching timekeepers -->
-        <div id="ri-rules-wrap" style="display:none;">
-          <label style="margin-bottom:2px;">Rate Increase Rules <span class="note">— set a starting rate or increase for a group, then override individual rows in the table below</span></label>
-          <div class="tk-table-wrap" style="margin-top:6px;">
-            <table class="ri-rules-table" id="ri-rules-table">
-              <thead><tr>
-                <th>Title</th><th>Practice</th><th>Office</th>
-                <th>Exp. From <span style="font-weight:400;">(yrs)</span></th><th>Exp. To <span style="font-weight:400;">(yrs)</span></th>
-                <th>Action</th><th>Value</th><th>Matches</th><th></th>
-              </tr></thead>
-              <tbody id="ri-rules-tbody"></tbody>
-            </table>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
-            <button class="btn btn-ghost btn-sm" onclick="addRIRule()">+ Add Rule</button>
-            <button class="btn btn-secondary btn-sm" onclick="applyRIRules()">Apply Rules to Table ↓</button>
-            <span class="text-muted">Rules apply top-to-bottom — a later rule wins for a timekeeper matched by more than one. Empty-value rules are ignored.</span>
-          </div>
-        </div>
-
-        <div id="tk-search-wrap" style="max-width:440px;margin-top:10px;margin-bottom:10px;">
-          <label>Search by name, TKID, title, practice, or office</label>
-          <input type="text" id="tk-search" placeholder="Type to search and add timekeepers... (Enter adds the top match)"
-            oninput="filterTK()" onfocus="openDropdown()" onkeydown="tkSearchKey(event)" autocomplete="off">
-          <div id="tk-dropdown"></div>
-        </div>
-
-        <!-- Rate Increase: filter & sort the setup table (useful for large rosters) -->
-        <div id="tk-filter-bar" style="display:none;">
-          <div class="fb-group"><label>Filter Title</label><select id="tk-filter-title" onchange="setRIFilter('title',this.value)"><option value="">All</option></select></div>
-          <div class="fb-group"><label>Filter Practice</label><select id="tk-filter-practice" onchange="setRIFilter('practice',this.value)"><option value="">All</option></select></div>
-          <div class="fb-group"><label>Filter Office</label><select id="tk-filter-office" onchange="setRIFilter('office',this.value)"><option value="">All</option></select></div>
-          <button class="btn btn-ghost btn-sm" onclick="clearRIFilter()">Clear</button>
-          <span id="tk-filter-count"></span>
-        </div>
-
-        <!-- Show/hide setup-table columns (blended / fixed / rate increase) -->
-        <div id="tk-col-toolbar" style="display:none;position:relative;margin-top:10px;">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleTKColMenu()">Columns ▾</button>
-          <div id="tk-col-menu" class="tk-col-menu" style="display:none;"></div>
-        </div>
-
-        <div class="tk-table-wrap">
-          <table class="tk-table" id="selected-tk-table">
-            <thead>
-              <tr id="tk-thead-row">
-                <th data-sortkey="tkid" data-col="tkid">TKID</th><th data-sortkey="name" data-col="name">Name</th><th data-sortkey="title" data-col="title">Title</th><th data-sortkey="practice" data-col="practice">Practice</th><th data-sortkey="office" data-col="office">Office</th>
-                <th id="th-std-rate" data-sortkey="stdRate" data-col="stdRate">Std Rate</th>
-                <th id="th-current-rate" data-sortkey="currentRate" data-col="currentRate" style="display:none;">Current Rate</th>
-                <th id="th-proposed" data-sortkey="proposed" data-col="proposed" style="display:none;">Proposed +%</th>
-                <th id="th-hours" data-sortkey="hours" data-col="hours">Hours</th>
-                <th id="th-pct" data-sortkey="pctMix" data-col="pctMix">% Mix</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tk-tbody">
-              <tr id="tk-empty-row"><td colspan="11" style="text-align:center;color:#888;padding:16px;">No timekeepers added. Use the search above to add.</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-
-        <!-- Fixed Fee: analysis basis (hours × rate vs % staffing mix + target fee) -->
-        <div id="fixed-mix-wrap" style="display:none;margin-top:10px;">
-          <label style="margin-bottom:6px;">Analysis Basis</label>
-          <div class="check-group">
-            <label class="check-opt"><input type="radio" name="fixed-basis" value="hours" checked onchange="setFixedMix(false)"> Hours &amp; Rate</label>
-            <label class="check-opt"><input type="radio" name="fixed-basis" value="mix" onchange="setFixedMix(true)"> % Staffing Mix + Target Fee</label>
-          </div>
-          <div class="text-muted" id="fixed-mix-hint">Enter each timekeeper's hours directly — the fee is calculated from hours × rate.</div>
-        </div>
-
-        <!-- Fixed fee target -->
-        <div id="fixed-fee-input" style="display:none;margin-top:14px;">
-          <div class="form-row">
-            <div class="form-group narrow">
-              <label id="fixed-fee-label">Fixed Fee Target</label>
-              <input type="number" id="fixed-fee-amount" placeholder="500000" min="0">
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- Rate Proposals & Ranges filters -->
-      <div id="range-section" style="display:none;">
-        <div class="section-label">Build Proposal Rate View</div>
-        <div class="text-muted" style="margin-bottom:10px;">Use this for pitches and client responses: show broader rate ranges, named key team members, or both.</div>
-        <div class="text-muted" style="margin-bottom:8px;">Pick which titles, practices, and offices to include. Nothing selected = everything (the whole firm).</div>
-        <div class="form-row" style="align-items:flex-start;">
-          <div class="form-group">
-            <label>Title</label>
-            <div class="ms-dropdown" id="ms-title">
-              <button type="button" class="ms-toggle" onclick="msToggle('title')"><span id="ms-title-label">All Titles</span> <span class="ms-caret">▾</span></button>
-              <div class="ms-menu" id="ms-title-menu" style="display:none;">
-                <div class="ms-actions"><a onclick="msSelectAll('title',true)">Select all</a><a onclick="msSelectAll('title',false)">Clear</a></div>
-                <div class="ms-options" id="ms-title-options"></div>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Practice</label>
-            <div class="ms-dropdown" id="ms-practice">
-              <button type="button" class="ms-toggle" onclick="msToggle('practice')"><span id="ms-practice-label">All Practices</span> <span class="ms-caret">▾</span></button>
-              <div class="ms-menu" id="ms-practice-menu" style="display:none;">
-                <div class="ms-actions"><a onclick="msSelectAll('practice',true)">Select all</a><a onclick="msSelectAll('practice',false)">Clear</a></div>
-                <div class="ms-options" id="ms-practice-options"></div>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Office</label>
-            <div class="ms-dropdown" id="ms-office">
-              <button type="button" class="ms-toggle" onclick="msToggle('office')"><span id="ms-office-label">All Offices</span> <span class="ms-caret">▾</span></button>
-              <div class="ms-menu" id="ms-office-menu" style="display:none;">
-                <div class="ms-actions"><a onclick="msSelectAll('office',true)">Select all</a><a onclick="msSelectAll('office',false)">Clear</a></div>
-                <div class="ms-options" id="ms-office-options"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:10px;">
-          <label style="margin-bottom:6px;">Discount by Title <span class="note">(optional — proposed = current less discount)</span></label>
-          <div class="form-row" style="align-items:flex-end;gap:8px;margin-bottom:8px;">
-            <div class="form-group narrow"><label class="note">Apply to all titles</label><input type="number" id="range-disc-all" min="0" max="100" placeholder="e.g. 10"></div>
-            <button class="btn btn-secondary btn-sm" onclick="applyRangeDiscAll()">Apply to All ↓</button>
-            <button class="btn btn-ghost btn-sm" onclick="clearRangeDisc()">Clear</button>
-            <span class="text-muted">Sets every title below — then fine-tune any row individually.</span>
-          </div>
-          <table class="disc-table">
-            <thead><tr><th>Title</th><th>Discount %</th></tr></thead>
-            <tbody id="range-disc-tbody"></tbody>
-          </table>
-        </div>
-
-        <div style="margin-top:12px;">
-          <label class="check-opt" style="display:inline-flex;"><input type="checkbox" id="range-show-titles" checked> Include title-level range table in output</label>
-        </div>
-
-        <div style="margin-top:12px;">
-          <label style="margin-bottom:6px;">Proposal Layout</label>
-          <div class="check-group">
-            <label class="check-opt"><input type="radio" name="range-output-order" value="teamFirst" checked> Key team first</label>
-            <label class="check-opt"><input type="radio" name="range-output-order" value="rangesFirst"> Ranges first</label>
-          </div>
-        </div>
-
-        <div style="margin-top:16px;">
-          <div class="section-label" style="margin-top:0;">Key Team Timekeepers <span class="note">(optional — add named people to the proposal)</span></div>
-          <div id="range-indiv-wrap" style="position:relative;max-width:440px;margin-bottom:8px;">
-            <input type="text" id="range-indiv-search" placeholder="Search by name, TKID, title, practice, or office... (Enter adds top match)" oninput="rangeIndivFilter()" onkeydown="rangeIndivKey(event)" autocomplete="off">
-            <div id="range-indiv-dd" class="ri-add-dd"></div>
-          </div>
-          <div class="tk-table-wrap">
-            <table class="tk-table" id="range-indiv-table" style="display:none;">
-              <thead><tr><th>Move</th><th>Name</th><th>Title</th><th>Office</th><th id="range-indiv-rate-th">Std Rate</th><th>Discount %</th><th>Proposed</th><th></th></tr></thead>
-              <tbody id="range-indiv-tbody"></tbody>
-            </table>
-          </div>
-          <div class="text-muted">Key team rates default to their title-level discount; adjust per person as needed. Use Move to set the order shown in the proposal output.</div>
-        </div>
-      </div>
 
       <!-- Budget Analysis -->
       <div id="budget-section" style="display:none;">
@@ -1126,95 +872,12 @@ Examples:
       </div>
 
       <!-- Blended: analysis basis (hours/fees vs % staffing mix only) -->
-      <div id="blended-mix-wrap" style="display:none;margin-top:10px;">
-        <label style="margin-bottom:6px;">Analysis Basis</label>
-        <div class="check-group">
-          <label class="check-opt"><input type="radio" name="blended-basis" value="hours" checked onchange="setBlendedMix(false)"> Hours &amp; Fees</label>
-          <label class="check-opt"><input type="radio" name="blended-basis" value="mix" onchange="setBlendedMix(true)"> % Staffing Mix only</label>
-        </div>
-        <div class="text-muted">“% Staffing Mix only” skips hours and total fees — enter each timekeeper’s % allocation and compare blended rates, realization, and margin.</div>
-      </div>
 
       <!-- Scenario config (blended + fixed) -->
-      <div id="scenario-config-wrap" style="display:none;">
-        <button class="btn btn-ghost btn-sm" onclick="toggleScenarioConfig()" id="scenario-toggle" style="margin-top:10px;">Customize Scenarios ▾</button>
-        <div id="scenario-config-panel" style="display:none;margin-top:10px;padding:12px 14px;background:#f5f6fb;border:1px solid var(--border);border-radius:6px;">
-          <div class="text-muted" style="margin-bottom:8px;">The baseline (0% discount) row is always included. Add discount, target blended rate, or target margin scenarios — as many as you need.</div>
-          <div id="blended-scen-rows"></div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="addBlendedScen()">+ Add Scenario</button>
-        </div>
-      </div>
 
       <!-- Rate Increase scenario config -->
-      <div id="ri-scenario-wrap" style="display:none;">
-        <button class="btn btn-ghost btn-sm" onclick="toggleEl('ri-scenario-panel');this.textContent=document.getElementById('ri-scenario-panel').style.display==='none'?'Customize Increase Scenarios ▾':'Customize Increase Scenarios ▴'" style="margin-top:6px;">Customize Increase Scenarios ▾</button>
-        <div id="ri-scenario-panel" style="display:none;margin-top:10px;padding:12px 14px;background:#f5f6fb;border:1px solid var(--border);border-radius:3px;">
-          <div class="form-row" style="margin-bottom:6px;">
-            <div class="form-group narrow"><label>Increase 1 (%)</label><input type="number" id="ri-inc1" value="5" min="0" max="100" style="width:70px;"></div>
-            <div class="form-group narrow"><label>Increase 2 (%)</label><input type="number" id="ri-inc2" value="10" min="0" max="100" style="width:70px;"></div>
-            <div class="form-group narrow"><label>Increase 3 (%)</label><input type="number" id="ri-inc3" value="15" min="0" max="100" style="width:70px;"></div>
-            <div class="form-group narrow"><label>Increase 4 (%)</label><input type="number" id="ri-inc4" value="20" min="0" max="100" style="width:70px;"></div>
-          </div>
-          <div class="text-muted">% increase applied from Current Rate for each scenario.</div>
-        </div>
-      </div>
 
       <!-- Write-off Analysis section -->
-      <div id="writeoff-section" style="display:none;">
-        <div class="section-label">Matter Identifiers</div>
-        <div class="form-row">
-          <div class="form-group"><label>Client Name</label><input type="text" id="wo-client-name" placeholder="e.g. Acme Corp"></div>
-          <div class="form-group narrow"><label>Client Number</label><input type="text" id="wo-client-num" placeholder="e.g. 10042"></div>
-          <div class="form-group"><label>Matter Name</label><input type="text" id="wo-matter-name" placeholder="e.g. M&amp;A — Asset Purchase"></div>
-          <div class="form-group narrow"><label>Matter Number</label><input type="text" id="wo-matter-num" placeholder="e.g. 10042-001"></div>
-          <div class="form-group"><label>Billing Attorney</label><input type="text" id="wo-billing-atty" placeholder="e.g. J. Smith"></div>
-        </div>
-
-        <div class="section-label" style="margin-top:14px;">Source Data <span class="note">— upload a PROFEX / MATM report (PDF or Excel/CSV) to auto-extract, or enter values manually</span></div>
-        <div class="wo-upload-row">
-          <input type="file" id="wo-pdf-input" accept=".pdf,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.gif,.bmp,.tif,.tiff" onchange="handleWOFile(event)" style="display:none;">
-          <label for="wo-pdf-input" class="btn btn-ghost btn-sm">Upload Report (PDF / Excel / CSV)</label>
-          <span id="wo-pdf-status" style="font-size:11px;color:#666;"></span>
-          <button class="btn btn-ghost btn-sm" onclick="clearWOInputs()" style="margin-left:auto;">Clear Fields</button>
-        </div>
-        <div class="notice notice-info" style="margin-bottom:10px;font-size:10px;">
-          Auto-extraction works on <strong>text-based PDFs and Excel/CSV</strong> exports. Scanned images (photos/screenshots) can't be read automatically — enter those values manually. Every extracted field can be reviewed and adjusted before running.
-        </div>
-
-        <table class="wo-metric-table">
-          <thead><tr><th>Metric</th><th>Value</th><th>Notes</th></tr></thead>
-          <tbody>
-            <tr><td>Hours</td><td><input type="number" id="wo-hours" step="0.1" min="0" placeholder="0.0"></td><td>Total matter hours</td></tr>
-            <tr><td>Leverage</td><td><input type="number" id="wo-leverage" step="0.01" min="0" placeholder="0.00"></td><td>Attorney hours leverage ratio</td></tr>
-            <tr><td>Billable Standard Fees</td><td><input type="number" id="wo-std-fees" step="1" min="0" placeholder="0"></td><td>At standard rates</td></tr>
-            <tr><td>Fees Billed</td><td><input type="number" id="wo-fees-billed" step="1" min="0" placeholder="0"></td><td>Amount billed to client</td></tr>
-            <tr><td>Fees Collected / Revenue</td><td><input type="number" id="wo-fees-collected" step="1" min="0" placeholder="0"></td><td>Cash collected to date</td></tr>
-            <tr><td>WIP Fees</td><td><input type="number" id="wo-wip" step="1" min="0" placeholder="0"></td><td>Work in progress; enter 0 if none</td></tr>
-          </tbody>
-        </table>
-
-        <div style="margin-top:14px;">
-          <label>Cost Basis</label>
-          <div class="wo-cost-row">
-            <input type="radio" name="wo-cost-method" id="wocm-direct" value="direct" checked onchange="toggleWOCostMethod()">
-            <label for="wocm-direct">Direct Cost Fees $</label>
-            <input type="number" id="wo-cost-direct" step="1" min="0" placeholder="0" style="width:150px;">
-            <span class="wo-cost-divider">|</span>
-            <input type="radio" name="wo-cost-method" id="wocm-margin" value="margin" onchange="toggleWOCostMethod()">
-            <label for="wocm-margin">Accrued Profit Margin %</label>
-            <input type="number" id="wo-accrued-margin" step="0.1" min="0" max="100" placeholder="e.g. 52" style="width:80px;" disabled>
-          </div>
-          <div class="text-muted">If direct cost is unavailable, enter Accrued Profit Margin % — cost estimated as Standard Fees × (1 − Margin%).</div>
-        </div>
-
-        <div style="margin-top:14px;">
-          <button class="btn btn-ghost btn-sm" onclick="toggleEl('wo-scen-panel');this.textContent=document.getElementById('wo-scen-panel').style.display==='none'?'Customize Scenarios ▾':'Customize Scenarios ▴'">Customize Scenarios ▾</button>
-          <div id="wo-scen-panel" style="display:none;margin-top:10px;padding:12px 14px;background:#f5f6fb;border:1px solid var(--border);border-radius:3px;">
-            <div class="text-muted" style="margin-bottom:10px;">Baseline (Write-off = $0) is always included. Configure up to 4 additional scenarios.</div>
-            <div id="wo-scen-rows"></div>
-          </div>
-        </div>
-      </div>
 
       <!-- Run -->
       <div style="margin-top:16px;display:none;" id="run-btn-wrap">
@@ -1293,7 +956,9 @@ let budgetTimekeepers = [];
 let budgetRows     = [];
 let budgetPhaseOverrides = {};
 let budgetAdjustments = [];
-let budgetScenarios = [];
+// Starting set of pricing scenarios. Empty for now; the defaults land in a later commit.
+function defaultBudgetScenarios() { return []; }
+let budgetScenarios = defaultBudgetScenarios();
 let budgetClientFormat = 'phase';
 let budgetClientNote = '';
 let budgetClientShowHours = true;
@@ -1500,7 +1165,7 @@ function normalizeRowsForExcel(rows) {
   return rows.map(row => row.map(safeExcel));
 }
 function missingDeps(names) {
-  const checks = { XLSX: window.XLSX, pdfjsLib: window.pdfjsLib, jspdf: window.jspdf };
+  const checks = { XLSX: window.XLSX };
   return names.filter(name => !checks[name]);
 }
 function requireDeps(names, feature) {
@@ -1510,12 +1175,12 @@ function requireDeps(names, feature) {
   return false;
 }
 function checkDependencyStatus() {
-  const missing = missingDeps(['XLSX','pdfjsLib','jspdf']);
+  const missing = missingDeps(['XLSX']);
   const warning = document.getElementById('dependency-warning');
   if (!warning) return;
   if (missing.length) {
     warning.innerHTML = `Some file features are unavailable because required libraries did not load: <strong>${esc(missing.join(', '))}</strong>.
-      Spreadsheet upload/export and PDF parsing/export may not work until those libraries are available.`;
+      Spreadsheet upload and Excel export may not work until those libraries are available.`;
     warning.style.display = 'block';
   } else {
     warning.style.display = 'none';
@@ -1580,44 +1245,8 @@ document.addEventListener('DOMContentLoaded', () => {
   maybeShowWelcome();
   checkDependencyStatus();
   window.addEventListener('load', () => setTimeout(checkDependencyStatus, 250));
-  document.getElementById('tk-dropdown').addEventListener('click', e => {
-    const opt = e.target.closest('.tk-option[data-tkid]');
-    if (opt) addTK(opt.dataset.tkid);
-  });
-  document.getElementById('tk-tbody').addEventListener('change', e => {
-    const inp = e.target.closest('input[data-f]');
-    const row = inp && inp.closest('tr[data-tkid]');
-    if (!inp || !row) return;
-    const val = Number(inp.value) || 0;
-    if (inp.dataset.f === 'hours') updateTKHours(row.dataset.tkid, val);
-    else updateTKField(row.dataset.tkid, inp.dataset.f, val);
-  });
-  document.getElementById('tk-tbody').addEventListener('click', e => {
-    const btn = e.target.closest('.remove-btn[data-tkid]');
-    if (btn) removeTK(btn.dataset.tkid);
-  });
-  // Sortable setup-table headers (rate increase only)
-  document.getElementById('tk-thead-row').addEventListener('click', e => {
-    if (document.getElementById('analysis-type').value !== 'rateIncrease') return;
-    const th = e.target.closest('th[data-sortkey]');
-    if (th) riSortBy(th.dataset.sortkey);
-  });
-  // Right before printing (button or Ctrl+P), drop the user's hidden columns from the PDF only
-  window.addEventListener('beforeprint', applyPrintHiddenCols);
+  // Close an open search dropdown (e.g. the budget timekeeper search) on any outside click
   document.addEventListener('click', e => {
-    const opt = e.target.closest('.ri-add-dd .tk-option[data-pid][data-tkid]');
-    if (opt) outAddTK(opt.dataset.pid, opt.dataset.tkid);
-  });
-  document.addEventListener('click', e => {
-    const opt = e.target.closest('#range-indiv-dd .tk-option[data-range-tkid]');
-    if (opt) rangeAddIndiv(opt.dataset.rangeTkid);
-  });
-  document.addEventListener('click', e => {
-    const opt = e.target.closest('.budget-person-dd .tk-option[data-budget-line][data-tkid]');
-    if (opt) budgetSelectPerson(+opt.dataset.budgetLine, opt.dataset.tkid);
-  });
-  document.addEventListener('click', e => {
-    if (!document.getElementById('tk-search-wrap').contains(e.target)) closeDropdown();
     document.querySelectorAll('.ri-add-dd.open').forEach(dd => {
       if (!dd.parentElement.contains(e.target)) dd.classList.remove('open');
     });
@@ -1638,64 +1267,17 @@ const TYPE_DESCRIPTIONS = {
 };
 
 function switchAnalysis() {
-  const type = document.getElementById('analysis-type').value;
   const descEl = document.getElementById('analysis-type-desc');
-  if (descEl) descEl.textContent = TYPE_DESCRIPTIONS[type] || '';
-  const show = id => document.getElementById(id).style.display = 'block';
-  const hide = id => document.getElementById(id).style.display = 'none';
-  const showTH = id => document.getElementById(id).style.display = '';
-  const hideTH = id => document.getElementById(id).style.display = 'none';
-
-  ['tk-selector-section','range-section','budget-section','fixed-fee-input','fixed-mix-wrap',
-   'scenario-config-wrap','blended-mix-wrap','ri-upload-row','ri-options','ri-rules-wrap','tk-filter-bar','tk-col-toolbar','ri-scenario-wrap','run-btn-wrap','writeoff-section','rate-basis-wrap'].forEach(hide);
-  const colMenu = document.getElementById('tk-col-menu'); if (colMenu) colMenu.style.display = 'none';
-  hideTH('th-current-rate'); hideTH('th-proposed');
-  showTH('th-hours'); showTH('th-pct');
-  // % staffing-mix-only is a blended/fixed-only mode; reset whenever we leave that analysis
-  if (type !== 'blended' && blendedMixMode) { blendedMixMode = false; const r=document.querySelector('input[name="blended-basis"][value="hours"]'); if(r) r.checked=true; }
-  if (type !== 'fixed' && fixedMixMode) { fixedMixMode = false; const r=document.querySelector('input[name="fixed-basis"][value="hours"]'); if(r) r.checked=true; }
-
-  if (!type) return;
-  show('run-btn-wrap');
-  // Baseline toggle applies to every rate-based analysis, only when premium rates exist
-  if (type !== 'writeoff' && rateHasPremium()) {
-    show('rate-basis-wrap');
+  if (descEl) descEl.textContent = 'Build a phase/task budget by timekeeper, then price it and produce client and internal versions.';
+  document.getElementById('run-btn-wrap').style.display = 'block';
+  // Standard vs premium baseline only matters when the rate card carries premium rates
+  const rbw = document.getElementById('rate-basis-wrap');
+  if (rbw) {
+    rbw.style.display = rateHasPremium() ? 'block' : 'none';
     const rb = document.querySelector(`input[name="rate-basis"][value="${rateBasis}"]`); if (rb) rb.checked = true;
   }
-
-  if (type === 'blended' || type === 'fixed' || type === 'rateIncrease') show('tk-col-toolbar');
-
-  if (type === 'blended' || type === 'fixed') {
-    show('tk-selector-section');
-    show('scenario-config-wrap');
-    if (type === 'blended') show('blended-mix-wrap');
-    if (type === 'fixed') { show('fixed-fee-input'); show('fixed-mix-wrap'); updateFixedFeeLabel(); }
-    hideTH('th-current-rate');
-  } else if (type === 'rateIncrease') {
-    show('tk-selector-section');
-    show('ri-upload-row');
-    document.getElementById('ri-options').style.display = 'block';
-    show('ri-rules-wrap');
-    document.getElementById('tk-filter-bar').style.display = 'flex';
-    show('ri-scenario-wrap');
-    showTH('th-current-rate');
-    showTH('th-proposed');
-    document.getElementById('th-proposed').textContent = riConfig.propMode === 'pct' ? 'Proposed +%' : 'Proposed Rate';
-    renderRIRules();
-  } else if (type === 'range') {
-    show('range-section');
-    renderRangeFilters();
-    renderRangeIndiv();
-  } else if (type === 'budget') {
-    show('budget-section');
-    renderBudget();
-  } else if (type === 'writeoff') {
-    show('writeoff-section');
-    renderWOScenRows();
-    return; // no TK table needed
-  }
-  renderPlanBar();
-  renderTKTable();
+  document.getElementById('budget-section').style.display = 'block';
+  renderBudget();
 }
 
 // ════════════════════════════
@@ -3665,8 +3247,6 @@ function loadFirmConfigInputs() {
   set('cfg-real-threshold', FIRM_CONFIG.realizationThreshold);
   set('cfg-cfo-target', FIRM_CONFIG.cfoTarget);
   set('cfg-cfo-floor', FIRM_CONFIG.cfoFloor);
-  set('cfg-wo-disclaimer', FIRM_CONFIG.woDisclaimer);
-  set('cfg-range-note', FIRM_CONFIG.rangeNote);
   const dm = document.getElementById('cfg-default-metric'); if (dm) dm.value = FIRM_CONFIG.defaultMetric || '';
   const db = document.getElementById('cfg-default-basis');  if (db) db.value = FIRM_CONFIG.defaultBasis || '';
   const cr = document.getElementById('cfg-cost-rates');     if (cr) cr.value = FIRM_CONFIG.costRates === 'hide' ? 'hide' : '';
@@ -3701,8 +3281,6 @@ function collectFirmConfig() {
     realizationThreshold: clampPct(gv('cfg-real-threshold')),
     cfoTarget: clampPct(gv('cfg-cfo-target')),
     cfoFloor: clampPct(gv('cfg-cfo-floor')),
-    woDisclaimer: gv('cfg-wo-disclaimer'),
-    rangeNote: gv('cfg-range-note'),
     defaultMetric: (document.getElementById('cfg-default-metric')||{}).value === 'discount' ? 'discount' : '',
     defaultBasis: (document.getElementById('cfg-default-basis')||{}).value === 'premium' ? 'premium' : '',
     costRates: (document.getElementById('cfg-cost-rates')||{}).value === 'hide' ? 'hide' : '',
@@ -3795,10 +3373,6 @@ function runAnalysis(opts={}) {
   const preserveScroll = !!opts.preserveScroll;
   const priorScrollX = preserveScroll ? window.scrollX : 0;
   const priorScrollY = preserveScroll ? window.scrollY : 0;
-  const type = document.getElementById('analysis-type').value;
-  if (!type) { alert('Select an analysis type.'); return; }
-  if (type === 'writeoff') { runWriteoffAnalysis(); return; }
-  syncFromTable();
   blockCounter = 0;
   outAddTargets = {}; outAddCounter = 0;
   approvalBreaches = [];
@@ -3815,23 +3389,16 @@ function runAnalysis(opts={}) {
   document.getElementById('print-date-hdr').textContent   = 'Generated ' + dateStr;
   document.getElementById('print-conf').textContent       = FIRM_CONFIG.disclaimer || 'Confidential — For Internal Use Only';
 
-  const typeLabels = {blended:'Blended Rate Analysis',rateIncrease:'Rate Increase Analysis',range:'Rate Proposals & Ranges',budget:'Budget Analysis',fixed:'Fixed Fee Analysis',writeoff:'Write-off Analysis'};
 
   const header = `<div class="output-header">
-    <div class="output-title">${typeLabels[type]}${matter?' — '+esc(matter):''}</div>
+    <div class="output-title">Budget Analysis${matter?' — '+esc(matter):''}</div>
     <div class="output-sub">${esc(RATE_DATA_VERSION)} · Generated ${dateStr}</div>
   </div>`;
 
-  let body = '';
-  if      (type==='blended')     body = runBlended();
-  else if (type==='rateIncrease')body = runRateIncrease();
-  else if (type==='range')       body = runRange();
-  else if (type==='budget')      body = runBudget();
-  else if (type==='fixed')       body = runFixed();
+  const body = runBudget();
 
   // approvalBannerHTML() reads breaches collected while the KPI strips in `body` were built
   document.getElementById('output-content').innerHTML = header + approvalBannerHTML() + body;
-  applyPrintHiddenCols();
   document.getElementById('output-section').style.display = 'block';
   if (preserveScroll) {
     window.scrollTo(priorScrollX, priorScrollY);
@@ -4788,16 +4355,15 @@ function exportExcel() {
   if (!lastResult) { alert('Run an analysis first.'); return; }
   if (!requireDeps(['XLSX'], 'Excel export')) return;
   const type = lastResult.type;
-  const lbl  = { blended:'Blended Rate Analysis', rateIncrease:'Rate Increase Analysis', range:'Rate Proposals & Ranges', budget:'Budget Analysis', fixed:'Fixed Fee Analysis', writeoff:'Write-off Analysis' }[type];
+  const lbl = 'Budget Analysis';
   const F = xlFmts();
   const IN = xlNewSheet(), SM = xlNewSheet();
   xlMeta(IN, lbl + ' — Inputs'); xlMeta(SM, lbl + ' — Summary');
-  const builder = { blended: xlBlendedFixed, fixed: xlBlendedFixed, rateIncrease: xlRateIncrease, range: xlRange, budget: xlBudget, writeoff: xlWriteoff }[type];
-  const widths = builder(IN, SM, F) || {};
+  const widths = xlBudget(IN, SM, F) || {};
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, IN.ws(widths.inputs || [14,22,18,14,10,12,12,10,14,14,14,14]), 'Inputs');
   XLSX.utils.book_append_sheet(wb, SM.ws(widths.summary || [26,14,14,14,14,14,14,14]), 'Summary');
-  XLSX.writeFile(wb, `Pricing_${type}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb, `Matter_Budget_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
 // ── Blended / Fixed Fee ──
@@ -5235,7 +4801,7 @@ function exportWord() {
   </body></html>`;
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob(['\ufeff', html], {type:'application/msword'})),
-    download: `Pricing_${lastResult.type}_${now.toISOString().slice(0,10)}.doc`
+    download: `Matter_Budget_${now.toISOString().slice(0,10)}.doc`
   });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   showToast('Word document downloaded.');
@@ -5248,7 +4814,7 @@ function exportEmail() {
   if (!lastResult) { alert('Run an analysis first.'); return; }
   const firm   = firmName();
   const matter = document.getElementById('matter-name').value.trim();
-  const lbl    = {blended:'Blended Rate Analysis',rateIncrease:'Rate Increase Analysis',range:'Rate Proposals & Ranges',budget:'Budget Analysis',fixed:'Fixed Fee Analysis',writeoff:'Write-off Analysis'}[lastResult.type];
+  const lbl    = 'Budget Analysis';
   const now    = new Date();
   const dateStr= now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'2-digit'});
 
@@ -5284,7 +4850,7 @@ ${clone.innerHTML}
   const eml = `MIME-Version: 1.0\r\nDate: ${now.toUTCString()}\r\nSubject: ${lbl}${matter?' — '+matter:''} — ${firm}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${emlHtml}`;
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(new Blob([eml],{type:'application/octet-stream'})),
-    download: `Pricing_${lastResult.type}_${now.toISOString().slice(0,10)}.eml`
+    download: `Matter_Budget_${now.toISOString().slice(0,10)}.eml`
   });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   showToast('Email draft (.eml) downloaded — open in Outlook to edit and send.');
@@ -5747,20 +5313,12 @@ function exportWriteoffPDF() {
 // CLEAR
 // ════════════════════════════
 function clearAll() {
-  plans=[{name:'Plan A',tk:[]}]; activePlan=0; selectedTK=plans[0].tk;
-  budgetLines=[]; budgetTimekeepers=[]; budgetRows=[]; budgetPhaseOverrides={}; budgetAdjustments=[]; budgetScenarios=[];
+  budgetTimekeepers=[]; budgetRows=[]; budgetPhaseOverrides={}; budgetScenarios=defaultBudgetScenarios();
   budgetClientFormat='phase'; budgetClientNote=''; budgetClientShowHours=true; budgetClientShowRates=false;
-  lastResult=null; blendedMixMode=false; fixedMixMode=false; rangeIndividuals=[];
-  riRules=[]; riSort={col:null,dir:1}; riFilter={title:'',practice:'',office:''}; hiddenCols=new Set();
+  lastResult=null;
   rateBasis = FIRM_CONFIG.defaultBasis === 'premium' ? 'premium' : 'standard';
   const rb=document.querySelector(`input[name="rate-basis"][value="${rateBasis}"]`); if(rb) rb.checked=true;
-  const bb=document.querySelector('input[name="blended-basis"][value="hours"]'); if(bb) bb.checked=true;
-  const fb=document.querySelector('input[name="fixed-basis"][value="hours"]'); if(fb) fb.checked=true;
-  const hoursTh=document.getElementById('th-hours'); if(hoursTh) hoursTh.style.display='';
-  updateFixedFeeLabel();
-  renderPlanBar(); renderTKTable(); renderRangeIndiv(); renderBudget();
-  const ff=document.getElementById('fixed-fee-amount'); if(ff) ff.value='';
-  clearWOInputs();
+  renderBudget();
   document.getElementById('output-section').style.display='none';
   document.getElementById('output-content').innerHTML='';
 }
