@@ -165,6 +165,23 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
   table.budget-table .w-task { min-width: 150px; }
   .budget-person-wrap { position: relative; min-width: 220px; }
   .budget-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0 6px; }
+  .pricing-options .scen-label { font-weight: 600; border-color: transparent; background: transparent; padding: 3px 6px; min-width: 200px; }
+  .pricing-options .scen-label:hover, .pricing-options .scen-label:focus { border-color: var(--border); background: var(--white); }
+  .scen-controls { display: flex; gap: 4px; align-items: center; margin-top: 3px; font-size: 10px; color: #667; flex-wrap: wrap; }
+  .scen-controls select { width: auto; max-width: 210px; font-size: 10px; padding: 2px 4px; }
+  .scen-controls input[type="number"] { width: 84px; text-align: right; font-size: 10px; padding: 2px 4px; }
+  .scen-ref { font-size: 9px; color: var(--navy); background: #eef1fa; padding: 1px 6px; border-radius: 8px; }
+  .pricing-options tr.current-row td { background: #eef1fa; }
+  .narr-text { min-height: 240px; font-size: 12px; line-height: 1.5; }
+  .narr-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 10px; color: #667; flex-wrap: wrap; }
+  .narr-edited { color: #9a6f00; font-weight: 600; }
+  .narr-doc .narr-title { font-size: 14pt; color: var(--navy); margin: 0 0 8px; }
+  .narr-doc .narr-head { font-size: 10.5pt; color: var(--navy); margin: 12px 0 4px; }
+  .narr-doc p { margin: 0 0 6px; } .narr-doc ul { margin: 0 0 6px; padding-left: 18px; }
+  .print-only { display: none; }
+  .audience-divider { display: flex; align-items: center; gap: 10px; margin: 26px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--navy); }
+  .audience-divider::before, .audience-divider::after { content: ''; flex: 1; height: 2px; background: var(--navy); opacity: .25; }
+  .output-actions .act-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #667; }
 
   /* ── Range discount table ── */
 
@@ -304,6 +321,8 @@ var XLSX={};function make_xlsx_lib(a){a.version="0.18.5",a.style_version="1.2.0"
     #output-section { display: block !important; border: none !important; }
     .card-body { padding: 0; }
     .output-actions, .output-block-bar .btn-copy, .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .audience-divider { break-before: page; }
     .print-header { display: flex !important; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a2b5e; padding-bottom: 8px; margin-bottom: 16px; }
     .print-firm { font-weight: bold; font-size: 12pt; color: #1a2b5e; }
     .print-matter { font-size: 10pt; color: #333; margin-top: 2px; }
@@ -790,12 +809,18 @@ const RATE_DATA = [
       </div>
       <div id="output-content"></div>
       <div class="output-actions no-print">
-        <button class="btn btn-primary" onclick="window.print()">Print / PDF</button>
-        <button class="btn btn-success" onclick="exportExcel()">Export Excel</button>
-        <button class="btn btn-success" onclick="exportWord()">Export Word</button>
+        <span class="act-label">Client / RFP</span>
+        <button class="btn btn-primary" id="x-client-word"  onclick="exportDoc('client','word')">Word</button>
+        <button class="btn btn-primary" id="x-client-pdf"   onclick="exportDoc('client','pdf')">PDF</button>
+        <button class="btn btn-ghost"   id="x-client-email" onclick="exportDoc('client','email')">Email draft</button>
+        <button class="btn btn-ghost"   id="x-client-copy"  onclick="exportDoc('client','copy')">Copy</button>
         <div class="sep"></div>
-        <button class="btn btn-ghost" onclick="exportEmail()">Email Draft (.eml)</button>
-        <button class="btn btn-ghost" onclick="copyAll()">Copy All Tables</button>
+        <span class="act-label">Internal review</span>
+        <button class="btn btn-success" id="x-int-excel" onclick="exportExcel()">Excel</button>
+        <button class="btn btn-success" id="x-int-word"  onclick="exportDoc('internal','word')">Word</button>
+        <button class="btn btn-ghost"   id="x-int-pdf"   onclick="exportDoc('internal','pdf')">Print / PDF</button>
+        <button class="btn btn-ghost"   id="x-int-email" onclick="exportDoc('internal','email')">Email draft</button>
+        <button class="btn btn-ghost"   id="x-int-copy"  onclick="exportDoc('internal','copy')">Copy</button>
         <div class="sep"></div>
         <button class="btn btn-secondary" onclick="document.getElementById('output-section').style.display='none'">Close</button>
       </div>
@@ -816,9 +841,8 @@ let lastResult     = null;
 let budgetTimekeepers = [];
 let budgetRows     = [];
 let budgetPhaseOverrides = {};
-// Starting set of pricing scenarios. Empty for now; the defaults land in a later commit.
-function defaultBudgetScenarios() { return []; }
-let budgetScenarios = defaultBudgetScenarios();
+let budgetScenarios = defaultBudgetScenarios();   // pricing options; defaults below
+let budgetNarratives = { client:null, internal:null };
 let budgetClientFormat = 'phase';
 let budgetClientNote = '';
 let budgetClientShowHours = true;
@@ -1409,30 +1433,423 @@ function updateBudgetPhaseOverride(phase, value) {
   else delete budgetPhaseOverrides[phase];
   runAnalysis({preserveScroll:true});
 }
+// ════════════════════════════
+// PRICING OPTIONS
+// ════════════════════════════
+// The options every budget is priced against from the start. The two margin options
+// point at the profit policy in Settings rather than holding a number, so changing the
+// target or floor there reprices them; editing one by hand pins it to that value.
+function defaultBudgetScenarios() {
+  return [
+    { type:'discount',    value:0,  label:'' },
+    { type:'discount',    value:5,  label:'' },
+    { type:'discount',    value:10, label:'' },
+    { type:'discount',    value:15, label:'' },
+    { type:'contingency', value:10, label:'' },
+    { type:'margin', ref:'target',  label:'' },
+    { type:'margin', ref:'floor',   label:'' },
+  ];
+}
+const SCENARIO_TYPES = [
+  { v:'discount',    l:'Discount off standard %' },
+  { v:'contingency', l:'Fixed fee: budget + contingency %' },
+  { v:'margin',      l:'Target profit margin %' },
+  { v:'fee',         l:'Target fee' },
+];
+function scenarioValue(s) {
+  if (s.type === 'margin' && s.ref === 'target') return cfoTarget();
+  if (s.type === 'margin' && s.ref === 'floor')  return cfoFloor();
+  return +s.value || 0;
+}
+// Fee for a pricing option, or null when it cannot be priced (a margin option with no cost rates).
+function scenarioFee(s, totals) {
+  const v = scenarioValue(s);
+  if (s.type === 'discount')    return totals.standardFees * (1 - Math.min(100, Math.max(0, v)) / 100);
+  if (s.type === 'contingency') return totals.proposedFees * (1 + v / 100);
+  if (s.type === 'margin')      return totals.cost > 0 && v < 100 ? totals.cost / (1 - v / 100) : null;
+  return v;   // 'fee'
+}
+function scenarioLabel(s) {
+  if (s.label) return s.label;
+  const v = scenarioValue(s);
+  if (s.type === 'discount')    return v > 0 ? `Standard rates less ${v}%` : 'Standard rates, no discount';
+  if (s.type === 'contingency') return `Fixed fee: budget + ${v}% contingency`;
+  if (s.type === 'margin')      return s.ref === 'floor' ? `Walk-away fee (${v}% profit floor)`
+                                     : s.ref === 'target' ? `Fee at ${v}% target margin` : `Fee at ${v}% margin`;
+  return `Target fee of ${curr(v)}`;
+}
+function budgetScenarioRows(totals) {
+  const mk = (label, fee) => ({
+    label, fee,
+    standardFees: totals.standardFees,
+    delta: fee == null ? null : fee - totals.proposedFees,
+    realization: fee != null && totals.standardFees > 0 ? fee / totals.standardFees * 100 : null,
+    margin: fee > 0 && totals.cost > 0 ? (fee - totals.cost) / fee * 100 : null,
+  });
+  const rows = [{ ...mk('Current budget (proposed rates)', totals.proposedFees), current:true }];
+  budgetScenarios.forEach((s, i) => rows.push({ ...mk(scenarioLabel(s), scenarioFee(s, totals)),
+    idx:i, type:s.type, value:scenarioValue(s), ref:s.ref || '', customLabel:s.label || '' }));
+  return rows;
+}
 function addBudgetScenario(type='discount') {
-  budgetScenarios.push({ type, value: type === 'discount' ? 10 : 0, label:'' });
+  const value = type === 'margin' ? cfoTarget() : type === 'fee' ? 0 : 10;
+  budgetScenarios.push({ type, value, label:'' });
   runAnalysis({preserveScroll:true});
 }
 function removeBudgetScenario(i) {
   budgetScenarios.splice(i, 1);
   runAnalysis({preserveScroll:true});
 }
-function budgetScenarioRows(totals) {
-  const mk = (label, fee) => ({
-    label,
-    standardFees: totals.standardFees,
-    fee,
-    realization: totals.standardFees > 0 ? fee / totals.standardFees * 100 : null,
-    margin: fee > 0 && totals.cost > 0 ? (fee - totals.cost) / fee * 100 : null,
+function setBudgetScenario(i, field, value) {
+  const s = budgetScenarios[i]; if (!s) return;
+  if (field === 'type') { s.type = value; s.value = value === 'margin' ? cfoTarget() : value === 'fee' ? 0 : 10; delete s.ref; }
+  else if (field === 'value') { s.value = +value || 0; delete s.ref; }      // a typed value pins it
+  else if (field === 'label') s.label = value;
+  runAnalysis({preserveScroll:true});
+}
+function resetBudgetScenarios() {
+  budgetScenarios = defaultBudgetScenarios();
+  runAnalysis({preserveScroll:true});
+}
+// Colour a margin the same way the KPI strip does: below floor red, below target amber.
+function marginCellStyle(m) {
+  const c = profitCls(m);
+  return c === 'kpi-danger' ? 'color:#b42318;font-weight:600;' : c === 'kpi-warn' ? 'color:#9a6f00;font-weight:600;' : '';
+}
+function budgetPricingOptionsHTML(rows) {
+  const bl = baseLabel();
+  const signed = d => d == null ? '—' : (d > 0.5 ? '+' : d < -0.5 ? '−' : '') + curr(Math.abs(d));
+  const body = rows.map(s => {
+    const fee = s.fee == null ? '<span class="text-muted">needs cost rates</span>' : curr(s.fee);
+    const cells = `<td class="num">${fee}</td><td class="num">${s.current ? '—' : signed(s.delta)}</td>
+      <td class="num">${fmtMetric(s.realization)}</td>
+      <td class="num" style="${marginCellStyle(s.margin)}">${s.margin == null ? '—' : pct(s.margin)}</td>`;
+    if (s.current) return `<tr class="current-row"><td><strong>${esc(s.label)}</strong></td>${cells}<td class="no-print"></td></tr>`;
+    const unit = s.type === 'fee' ? '' : '%';
+    return `<tr>
+      <td>
+        <input type="text" class="scen-label" value="${escAttr(s.customLabel || s.label)}" onchange="setBudgetScenario(${s.idx},'label',this.value)">
+        <div class="scen-controls no-print">
+          <select onchange="setBudgetScenario(${s.idx},'type',this.value)">${SCENARIO_TYPES.map(t => `<option value="${t.v}"${t.v===s.type?' selected':''}>${t.l}</option>`).join('')}</select>
+          <input type="number" min="0" step="${s.type==='fee'?1000:0.5}" value="${escAttr(String(s.value))}" onchange="setBudgetScenario(${s.idx},'value',this.value)" title="${s.ref ? 'Follows the profit ' + s.ref + ' in Settings until you change it' : ''}">${unit}
+          ${s.ref ? `<span class="scen-ref">from Settings</span>` : ''}
+        </div>
+      </td>${cells}
+      <td class="center no-print"><button class="remove-btn" onclick="removeBudgetScenario(${s.idx})" title="Remove">×</button></td>
+    </tr>`;
+  }).join('');
+  return `
+    <table class="result-table pricing-options">
+      <thead><tr><th>Pricing option</th><th>Fee</th><th>vs current budget</th><th>${metricLabel()} vs ${bl}</th><th>Profit margin</th><th class="no-print"></th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+    <div class="budget-toolbar no-print" style="margin-top:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="addBudgetScenario('discount')">+ Discount</button>
+      <button class="btn btn-ghost btn-sm" onclick="addBudgetScenario('contingency')">+ Fixed fee</button>
+      <button class="btn btn-ghost btn-sm" onclick="addBudgetScenario('margin')">+ Target margin</button>
+      <button class="btn btn-ghost btn-sm" onclick="addBudgetScenario('fee')">+ Target fee</button>
+      <button class="btn btn-ghost btn-sm" onclick="resetBudgetScenarios()">Reset to defaults</button>
+    </div>
+    <div class="notice notice-info" style="margin-top:8px;font-size:10px;">
+      Margin is coloured against the profit policy in Settings: amber below the ${cfoTarget()}% target, red below the ${cfoFloor()}% floor.
+      The walk-away fee is the lowest fee that still holds the floor.</div>`;
+}
+
+// ════════════════════════════
+// NARRATIVES: CLIENT / RFP AND INTERNAL REVIEW
+// ════════════════════════════
+// Both are written from the budget as plain text, so they paste cleanly into an RFP
+// portal or an email. null = follow the budget; once someone edits the text it is
+// theirs and stops updating until they choose Regenerate.
+// Text format: "• " starts a bullet; a blank line separates paragraphs.
+
+function longDate(d) { return d.toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'}); }
+function matterName() { const el = document.getElementById('matter-name'); return el ? el.value.trim() : ''; }
+function shareOf(part, whole) { return whole > 0 ? Math.round(part / whole * 100) + '%' : '—'; }
+function hoursStr(h) { return (Math.round(h * 10) / 10).toLocaleString('en-US'); }
+function pluralTitle(t, n) {
+  if (n === 1 || /counsel$/i.test(t) || /s$/i.test(t)) return t;
+  return t + 's';
+}
+function listJoin(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+
+// Hours and fees by title, most senior (highest standard rate) first.
+function budgetTitleMix(r) {
+  const byTk = {};
+  (r.budgetRows || []).forEach(row => Object.entries(row.hours || {}).forEach(([id, h]) => { byTk[id] = (byTk[id] || 0) + (+h || 0); }));
+  const map = new Map();
+  (r.budgetTimekeepers || []).forEach(tk => {
+    const h = byTk[tk.tkid] || 0; if (h <= 0) return;
+    const title = (tk.title || 'Timekeeper').trim();
+    const g = map.get(title) || { title, people:0, hours:0, topRate:0 };
+    g.people += 1; g.hours += h; g.topRate = Math.max(g.topRate, +tk.standardRate || 0);
+    map.set(title, g);
   });
-  const rows = [mk('Current Budget', totals.proposedFees)];
-  budgetScenarios.forEach((s, i) => {
-    const v = +s.value || 0;
-    const fee = s.type === 'discount' ? totals.standardFees * (1 - Math.min(100, v)/100) : v;
-    const label = s.label || (s.type === 'discount' ? `${v}% Discount Scenario` : `Target Fee ${curr(v)}`);
-    rows.push({ ...mk(label, fee), idx:i, type:s.type, value:v, customLabel:s.label || '' });
+  return [...map.values()].sort((a, b) => b.topRate - a.topRate);
+}
+function budgetPhaseTasks(r) {
+  const m = new Map();
+  (r.taskRows || []).forEach(t => { const a = m.get(t.phase) || []; if (!a.includes(t.task)) a.push(t.task); m.set(t.phase, a); });
+  return m;
+}
+
+function clientNarrative(r) {
+  const t = r.totals, now = new Date();
+  const valid = new Date(now.getTime() + 90 * 864e5);
+  const matter = matterName();
+  const mix = budgetTitleMix(r);
+  const people = mix.reduce((a, g) => a + g.people, 0);
+  const partnerH = mix.filter(g => /partner/i.test(g.title)).reduce((a, g) => a + g.hours, 0);
+  const tasks = budgetPhaseTasks(r);
+  const L = [];
+  L.push(`Fee Estimate${matter ? ' — ' + matter : ''}`, '');
+  L.push(`We estimate total professional fees of ${curr(t.proposedFees)} for this matter` +
+    (r.showHours ? `, based on approximately ${hoursStr(t.hours)} hours of professional time` : '') +
+    (r.showRates && t.hours > 0 ? `, at a blended hourly rate of ${curr(t.proposedFees / t.hours)}` : '') + '.', '');
+  L.push('Scope and estimated fees by phase');
+  r.phaseGroups.forEach(g => {
+    const tk = (tasks.get(g.phase) || []).filter(x => x && x !== 'General');
+    L.push(`• ${g.phase}: ${curr(g.proposedFees)} (${shareOf(g.proposedFees, t.proposedFees)} of total` +
+      (r.showHours ? `, ${hoursStr(g.hours)} hours` : '') + ')' + (tk.length ? ` — ${tk.join('; ')}` : ''));
   });
-  return rows;
+  L.push('');
+  if (people) {
+    L.push('Proposed team');
+    L.push(`• A team of ${people}: ${listJoin(mix.map(g => `${g.people} ${pluralTitle(g.title, g.people)}`))}.`);
+    if (partnerH > 0) L.push(`• Partners are budgeted for ${shareOf(partnerH, t.hours)} of the hours, with work delegated to the most efficient level of experience.`);
+    L.push('');
+  }
+  if (r.clientNote) L.push(r.clientNote, '');
+  L.push('Assumptions');
+  L.push('• This estimate reflects our current understanding of the scope described above and the information available today.');
+  L.push('• It covers professional fees only. Disbursements and third-party charges, such as filing fees, experts, local counsel and travel, are excluded unless stated.');
+  L.push('• If the scope, timetable or level of contention changes materially, we will discuss it with you before additional fees are incurred.');
+  L.push('• This is an estimate, not a fixed fee or cap, unless agreed in writing.');
+  L.push(`• Valid for 90 days, until ${longDate(valid)}.`);
+  return L.join('\n');
+}
+
+function internalNarrative(r) {
+  const t = r.totals, bl = r.bl, now = new Date();
+  const target = cfoTarget(), floor = cfoFloor();
+  const blended = t.hours > 0 ? t.proposedFees / t.hours : 0;
+  const matter = matterName();
+  const mix = budgetTitleMix(r);
+  const partnerH = mix.filter(g => /partner/i.test(g.title)).reduce((a, g) => a + g.hours, 0);
+  const L = [];
+  L.push(`Internal Pricing Review${matter ? ' — ' + matter : ''}`, '');
+  L.push(`Prepared ${longDate(now)} · ${RATE_DATA_VERSION} · ${bl} rate basis`, '');
+
+  L.push('Headline');
+  L.push(`• Proposed fees of ${curr(t.proposedFees)} for ${hoursStr(t.hours)} hours across ${r.phaseGroups.length} phase${r.phaseGroups.length === 1 ? '' : 's'}; blended rate ${curr(blended)}.`);
+  L.push(`• Fees at ${bl} rates would be ${curr(t.standardFees)}; ${metricLabel().replace(' %', '').toLowerCase()} is ${fmtMetric(t.realization)}.` +
+    (() => { const b = checkThreshold('realization', t.realization); return b ? ` ${b.note}: ${APPROVAL_NOTE}.` : ''; })());
+  if (t.cost > 0) {
+    const m = t.margin;
+    const verdict = m >= target ? `at or above the ${target}% target`
+      : m >= floor ? `below the ${target}% target but above the ${floor}% floor`
+      : `BELOW the ${floor}% profit floor`;
+    L.push(`• Profit margin ${pct(m)}: ${verdict}.` +
+      (costHidden() ? '' : ` Cost to deliver ${curr(t.cost)}.`) +
+      (() => { const b = checkThreshold('profit', m); return b ? ` ${b.note}: ${APPROVAL_NOTE}.` : ''; })());
+  } else {
+    L.push('• Profit margin not available: no cost rates are loaded for this team.');
+  }
+  L.push('');
+
+  L.push('Staffing and scope');
+  if (mix.length) L.push('• Hours by title: ' + mix.map(g => `${g.title} ${hoursStr(g.hours)} h (${shareOf(g.hours, t.hours)})`).join(', ') + '.');
+  L.push(`• Partner share of hours: ${shareOf(partnerH, t.hours)}.`);
+  const top = [...r.phaseGroups].sort((a, b) => b.proposedFees - a.proposedFees)[0];
+  if (top) L.push(`• Largest phase: ${top.phase}, ${curr(top.proposedFees)} (${shareOf(top.proposedFees, t.proposedFees)} of fees).`);
+  r.phaseGroups.filter(g => g.override > 0).forEach(g => {
+    const d = g.proposedFees - g.proposedRateFees;
+    L.push(`• Fee override on ${g.phase}: ${curr(g.proposedFees)} against ${curr(g.proposedRateFees)} calculated (${d >= 0 ? '+' : '−'}${curr(Math.abs(d))}).`);
+  });
+  L.push('');
+
+  L.push('Pricing guardrails');
+  if (t.cost > 0) {
+    const atTarget = t.cost / (1 - target / 100), atFloor = t.cost / (1 - floor / 100);
+    L.push(`• Fee at the ${target}% target margin: ${curr(atTarget)}.`);
+    L.push(`• Walk-away fee at the ${floor}% profit floor: ${curr(atFloor)}. The current budget is ${curr(Math.abs(t.proposedFees - atFloor))} ${t.proposedFees >= atFloor ? 'above' : 'below'} it.`);
+    const deepest = t.standardFees > 0 ? Math.floor((1 - atFloor / t.standardFees) * 1000) / 10 : 0;
+    L.push(deepest > 0
+      ? `• Deepest discount off ${bl} rates that still holds the floor: ${deepest}% (a fee of ${curr(t.standardFees * (1 - deepest / 100))}).`
+      : `• No discount off ${bl} rates holds the floor; ${bl}-rate fees give a ${pct((t.standardFees - t.cost) / t.standardFees * 100)} margin.`);
+  } else {
+    L.push('• Add cost rates to see the target-margin fee, the walk-away fee and the deepest discount that holds the floor.');
+  }
+  return L.join('\n');
+}
+
+// Plain text -> HTML. First line is the title; a line directly above bullets is a heading.
+function narrativeHTML(text) {
+  const blocks = String(text || '').replace(/\r/g, '').split(/\n\s*\n/).map(b => b.split('\n').filter(l => l.trim()));
+  return blocks.filter(b => b.length).map((lines, bi) => {
+    let out = '', list = [];
+    const flush = () => { if (list.length) { out += '<ul>' + list.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>'; list = []; } };
+    lines.forEach((l, i) => {
+      const m = l.match(/^\s*[•\-\*]\s+(.*)$/);
+      if (m) { list.push(m[1]); return; }
+      flush();
+      const nextIsBullet = i + 1 < lines.length && /^\s*[•\-\*]\s+/.test(lines[i + 1]);
+      if (bi === 0 && i === 0 && lines.length === 1) out += `<h2 class="narr-title">${esc(l)}</h2>`;
+      else if (nextIsBullet) out += `<h3 class="narr-head">${esc(l)}</h3>`;
+      else out += `<p>${esc(l)}</p>`;
+    });
+    flush();
+    return out;
+  }).join('');
+}
+function narrativeText(key) {
+  if (budgetNarratives[key] != null) return budgetNarratives[key];
+  return lastResult && lastResult.narratives ? lastResult.narratives[key] : '';
+}
+function setNarrative(key, value) {
+  budgetNarratives[key] = value;
+  const p = document.getElementById(`narr-print-${key}`); if (p) p.innerHTML = narrativeHTML(value);
+  const b = document.getElementById(`narr-state-${key}`); if (b) b.innerHTML = narrativeStateHTML(key);
+}
+function regenerateNarrative(key) { budgetNarratives[key] = null; runAnalysis({preserveScroll:true}); }
+function narrativeStateHTML(key) {
+  return budgetNarratives[key] != null
+    ? `<span class="narr-edited">Edited: budget changes no longer flow into this text.</span>`
+    : `<span>Written from the budget and updates with it. Edit freely; your wording is kept.</span>`;
+}
+function narrativeBlockHTML(key, label, hint) {
+  const text = narrativeText(key);
+  return `<div class="output-block narr-block" data-audience="${key}">
+    <div class="output-block-bar"><div class="section-label">${label}</div></div>
+    <div class="notice notice-info no-print" style="margin:0 0 8px;font-size:10px;">${hint}</div>
+    <textarea id="narr-text-${key}" class="narr-text no-print" spellcheck="true" oninput="setNarrative('${key}', this.value)">${esc(text)}</textarea>
+    <div class="narr-bar no-print"><span id="narr-state-${key}">${narrativeStateHTML(key)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="regenerateNarrative('${key}')">Regenerate from the budget</button></div>
+    <div id="narr-print-${key}" class="narr-doc print-only">${narrativeHTML(text)}</div>
+  </div>`;
+}
+
+// The client summary table, built from the result alone (never from the on-screen DOM),
+// so nothing internal can ride along into a client document.
+function clientSummaryTableHTML(r) {
+  const t = r.totals, task = r.clientFormat === 'task';
+  const rows = task ? r.taskRows : r.phaseGroups;
+  const blended = t.hours > 0 ? t.proposedFees / t.hours : 0;
+  return `<table class="result-table">
+    <thead><tr><th>${task ? 'Phase / Task' : 'Phase'}</th>${r.showHours ? '<th>Hours</th>' : ''}${r.showRates ? '<th>Blended Rate</th>' : ''}<th>Estimated Fees</th></tr></thead>
+    <tbody>${rows.map(g => `<tr><td>${task ? `${esc(g.phase || 'Unassigned')} — ${esc(g.task || 'General')}` : esc(g.phase)}</td>` +
+      (r.showHours ? `<td class="num">${g.hours.toFixed(1)}</td>` : '') +
+      (r.showRates ? `<td class="num">${curr(g.hours > 0 ? g.proposedFees / g.hours : 0)}</td>` : '') +
+      `<td class="num">${curr(g.proposedFees)}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td class="label">Total Estimated Fees</td>${r.showHours ? `<td class="num">${t.hours.toFixed(1)}</td>` : ''}${r.showRates ? `<td class="num">${curr(blended)}</td>` : ''}<td class="num">${curr(t.proposedFees)}</td></tr></tfoot>
+  </table>`;
+}
+
+// ════════════════════════════
+// EXPORTS BY AUDIENCE
+// ════════════════════════════
+const DOC_STYLE = `body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;margin:28px;line-height:1.45;}
+table{border-collapse:collapse;width:100%;font-size:11px;margin:10px 0 16px;}
+th{background:#1a2b5e;color:#fff;font-weight:bold;padding:8px 10px;text-align:center;white-space:nowrap;}
+th:first-child{text-align:left;}
+td{padding:7px 10px;border-bottom:1px solid #d0d5e8;}
+tfoot td{font-weight:bold;background:#e8ebf7;border-top:2px solid #1a2b5e;}
+.num{text-align:right;}.label{text-align:left;}.center{text-align:center;}
+.notice-info{font-size:10px;padding:6px 10px;background:#eef0fb;border-left:3px solid #1a2b5e;color:#333;margin:6px 0 12px;}
+.section-label{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;color:#1a2b5e;margin:18px 0 6px;border-bottom:1px solid #d0d5e8;padding-bottom:4px;}
+.kpi-strip{display:none;}
+.letterhead{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #1a2b5e;padding-bottom:10px;margin-bottom:18px;}
+.lh-firm{font-weight:bold;font-size:15px;color:#1a2b5e;}.lh-line{font-size:10px;color:#666;margin-top:1px;}
+.lh-meta{text-align:right;font-size:10px;color:#666;}.lh-conf{margin-top:3px;color:#9a6f00;font-weight:bold;}
+.narr-title{font-size:16px;color:#1a2b5e;margin:0 0 10px;}.narr-head{font-size:12px;color:#1a2b5e;margin:14px 0 4px;}
+p{margin:0 0 8px;}ul{margin:0 0 8px;padding-left:20px;}li{margin:2px 0;}
+.doc-ftr{margin-top:24px;padding-top:8px;border-top:1px solid #d0d5e8;font-size:9px;color:#999;}`;
+
+// Copy of an on-screen block with controls stripped and inputs flattened to their values.
+function staticClone(el) {
+  const c = el.cloneNode(true);
+  c.querySelectorAll('.btn-copy, .no-print, .narr-block').forEach(b => b.remove());
+  c.querySelectorAll('input, select').forEach(inp => {
+    const s = document.createElement('span');
+    s.textContent = inp.tagName === 'SELECT' ? (inp.options[inp.selectedIndex] || {}).text || '' : inp.value;
+    inp.replaceWith(s);
+  });
+  return c;
+}
+
+function buildExportDoc(audience) {
+  const r = lastResult, client = audience === 'client';
+  const firm = firmName(), matter = matterName(), now = new Date();
+  const title = client ? `Fee Estimate${matter ? ' — ' + matter : ''}` : `Internal Pricing Review${matter ? ' — ' + matter : ''}`;
+  const lhLeft = `<div><div class="lh-firm">${esc(firm)}</div>` +
+    [FIRM_CONFIG.office, FIRM_CONFIG.address].filter(Boolean).map(s => `<div class="lh-line">${esc(s)}</div>`).join('') + `</div>`;
+  const lhRight = `<div class="lh-meta"><div>${esc(longDate(now))}</div>` +
+    (client ? '' : `<div>${esc(RATE_DATA_VERSION)}</div><div class="lh-conf">${esc(FIRM_CONFIG.disclaimer || 'Confidential — For Internal Use Only')}</div>`) + `</div>`;
+  const text = narrativeText(audience);
+  let body = narrativeHTML(text);
+  if (client) {
+    body += `<div class="section-label">${r.clientFormat === 'task' ? 'Estimated Fees by Phase and Task' : 'Estimated Fees by Phase'}</div>` + clientSummaryTableHTML(r);
+  } else {
+    body += staticClone(document.getElementById('output-content')).innerHTML;
+  }
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(title)}</title><style>${DOC_STYLE}</style></head><body>
+<div class="letterhead">${lhLeft}${lhRight}</div>
+${body}
+${client ? '' : `<div class="doc-ftr">Generated ${esc(longDate(now))} · Matter Budget Builder</div>`}
+</body></html>`;
+  return { title, text, html, body };
+}
+
+function exportFileStem(audience) {
+  const slug = matterName().replace(/[^\w]+/g, '_').replace(/^_|_$/g, '').slice(0, 40);
+  return (audience === 'client' ? 'Fee_Estimate' : 'Internal_Pricing_Review') + (slug ? '_' + slug : '') + '_' + new Date().toISOString().slice(0, 10);
+}
+function downloadBlob(parts, type, name) {
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(parts, { type })), download: name });
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function printHTML(html) {
+  const f = document.createElement('iframe');
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(f);
+  f.onload = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } finally { setTimeout(() => f.remove(), 1500); } };
+  f.srcdoc = html;
+}
+function copyRich(html, text, msg) {
+  if (navigator.clipboard && window.ClipboardItem) {
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html': new Blob([html], { type:'text/html' }),
+      'text/plain': new Blob([text], { type:'text/plain' }) })])
+      .then(() => showToast(msg)).catch(() => copyPlain(text, msg));
+  } else copyPlain(text, msg);
+}
+function copyPlain(text, msg) {
+  const ta = Object.assign(document.createElement('textarea'), { value: text });
+  ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+  showToast(ok ? msg : 'Copy failed — select the text and copy it by hand.');
+}
+
+function exportDoc(audience, fmt) {
+  if (!lastResult) { showToast('Build the budget first.'); return; }
+  const d = buildExportDoc(audience), stem = exportFileStem(audience);
+  const who = audience === 'client' ? 'Client' : 'Internal';
+  if (fmt === 'word') {
+    downloadBlob(['﻿', d.html], 'application/msword', stem + '.doc');
+    showToast(`${who} Word document downloaded.`);
+  } else if (fmt === 'pdf') {
+    if (audience === 'internal') { window.print(); return; }   // the full analysis, through the print stylesheet
+    printHTML(d.html);
+  } else if (fmt === 'email') {
+    const eml = `MIME-Version: 1.0\r\nX-Unsent: 1\r\nDate: ${new Date().toUTCString()}\r\nSubject: ${d.title} — ${firmName()}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${d.html}`;
+    downloadBlob([eml], 'application/octet-stream', stem + '.eml');
+    showToast(`${who} email draft downloaded — open it in Outlook to edit and send.`);
+  } else if (fmt === 'copy') {
+    copyRich(`<style>${DOC_STYLE}</style>` + d.body, d.text, `${who} text copied.`);
+  }
 }
 
 function handleRateMasterUpload(event) {
@@ -1977,6 +2394,7 @@ function runBudget() {
   lastResult = { type:'budget', budgetTimekeepers:budgetTimekeepers.map(t=>({...t})), budgetRows:budgetRows.map(r=>({...r, hours:{...(r.hours||{})}})), phaseGroups, taskRows, totals, clientFormat, clientNote, showHours, showRates, bl };
   const scenarioRows = budgetScenarioRows(totals);
   lastResult.budgetScenarios = scenarioRows;
+  lastResult.narratives = { client: clientNarrative(lastResult), internal: internalNarrative(lastResult) };
 
   let html = buildKPIStrip([
     { label: 'Proposed Budget Fees', value: curr(totals.proposedFees), sub: 'editable by phase below' },
@@ -2012,39 +2430,11 @@ function runBudget() {
     </table>
     <div class="notice notice-info" style="margin-top:8px;font-size:10px;">Edit a phase's <strong>Proposed Fee</strong> to override the calculated proposed-rate fees. Realization and profit margin refresh when you leave the field.</div>`);
 
-  html += blockWrap('Pricing / Discount Scenarios', `
-    <table class="result-table">
-      <thead><tr><th>Scenario</th><th>Fees at ${bl} Rates</th><th>Budgeted / Scenario Fees</th><th>Realization</th><th>Profit Margin</th><th class="no-print"></th></tr></thead>
-      <tbody>${scenarioRows.map((s, rowIdx) => rowIdx === 0 ? `<tr>
-        <td>${esc(s.label)}</td>
-        <td class="num">${curr(s.standardFees)}</td>
-        <td class="num">${curr(s.fee)}</td>
-        <td class="num">${pct(s.realization)}</td>
-        <td class="num">${s.margin==null?'—':pct(s.margin)}</td>
-        <td class="no-print"></td>
-      </tr>` : `<tr>
-        <td><input type="text" value="${escAttr(s.customLabel || s.label)}" oninput="budgetScenarios[${s.idx}].label=this.value" onchange="runAnalysis({preserveScroll:true})" style="min-width:170px;"></td>
-        <td class="num">${curr(s.standardFees)}</td>
-        <td class="num">
-          <div class="form-row no-print" style="margin:0;gap:4px;flex-wrap:nowrap;justify-content:flex-end;">
-            <select onchange="budgetScenarios[${s.idx}].type=this.value;runAnalysis({preserveScroll:true})" style="width:110px;">
-              <option value="discount"${s.type==='discount'?' selected':''}>Discount %</option>
-              <option value="fee"${s.type==='fee'?' selected':''}>Target Fee</option>
-            </select>
-            <input type="number" min="0" value="${escAttr(s.value)}" oninput="budgetScenarios[${s.idx}].value=+this.value||0" onblur="budgetScenarios[${s.idx}].value=+this.value||0;runAnalysis({preserveScroll:true})" onchange="budgetScenarios[${s.idx}].value=+this.value||0;runAnalysis({preserveScroll:true})" style="width:90px;text-align:right;">
-          </div>
-          <div>${curr(s.fee)}</div>
-        </td>
-        <td class="num">${pct(s.realization)}</td>
-        <td class="num">${s.margin==null?'—':pct(s.margin)}</td>
-        <td class="center no-print"><button class="remove-btn" onclick="removeBudgetScenario(${s.idx})" title="Remove">×</button></td>
-      </tr>`).join('')}</tbody>
-    </table>
-    <div class="budget-toolbar no-print" style="margin-top:8px;">
-      <button class="btn btn-ghost btn-sm" onclick="addBudgetScenario('discount')">+ Add Discount Scenario</button>
-      <button class="btn btn-ghost btn-sm" onclick="addBudgetScenario('fee')">+ Add Target Fee Scenario</button>
-    </div>`);
+  html += blockWrap('Pricing Options', budgetPricingOptionsHTML(scenarioRows));
+  html += narrativeBlockHTML('internal', 'Internal Review Memo',
+    'For partner and pricing-committee review. Never included in client exports.');
 
+  html += `<div class="audience-divider"><span>Client-facing</span></div>`;
   html += `<div class="output-block no-print">
     <div class="output-block-bar"><div class="section-label">Client Summary Formatting</div></div>
     <div class="form-row" style="align-items:flex-start;">
@@ -2068,22 +2458,12 @@ function runBudget() {
     </div>
   </div>`;
 
-  const clientRows = clientFormat === 'task' ? taskRows : phaseGroups;
+  html += narrativeBlockHTML('client', 'Client / RFP Fee Proposal',
+    'Client-safe: fees, scope, team and assumptions only. No cost, margin, realization or discount figures.');
   const clientTitle = clientFormat === 'task' ? 'Client Budget Summary by Phase and Task' : 'Client Budget Summary by Phase';
-  const rateCol = showRates ? '<th>Blended Rate</th>' : '';
-  const hoursCol = showHours ? '<th>Hours</th>' : '';
   html += blockWrap(clientTitle, `
     ${clientNote ? `<div class="notice notice-info" style="margin-bottom:10px;">${esc(clientNote)}</div>` : ''}
-    <table class="result-table">
-      <thead><tr><th>${clientFormat==='task'?'Phase / Task':'Phase'}</th>${hoursCol}${rateCol}<th>Estimated Fees</th></tr></thead>
-      <tbody>${clientRows.map(g => {
-        const label = clientFormat === 'task' ? `${esc(g.phase || 'Unassigned')} — ${esc(g.task || 'General')}` : esc(g.phase);
-        const fee = clientFormat === 'task' ? g.proposedFees : g.proposedFees;
-        const avgRate = g.hours > 0 ? fee/g.hours : 0;
-        return `<tr><td>${label}</td>${showHours?`<td class="num">${g.hours.toFixed(1)}</td>`:''}${showRates?`<td class="num">${curr(avgRate)}</td>`:''}<td class="num">${curr(fee)}</td></tr>`;
-      }).join('')}</tbody>
-      <tfoot><tr><td class="label">Total Estimated Fees</td>${showHours?`<td class="num">${totals.hours.toFixed(1)}</td>`:''}${showRates?`<td class="num">${curr(blendedProposed)}</td>`:''}<td class="num">${curr(totals.proposedFees)}</td></tr></tfoot>
-    </table>
+    ${clientSummaryTableHTML(lastResult)}
     <div class="notice notice-info" style="margin-top:8px;font-size:10px;">Client summary excludes internal cost, profitability, and realization metrics.</div>`);
 
   return html;
@@ -2179,10 +2559,6 @@ function buildCopyHTML(el) {
   return COPY_STYLE + c.innerHTML;
 }
 function copyBlock(id) { doCopy(buildCopyHTML(document.getElementById(id)),'Table copied!'); }
-function copyAll()  {
-  if (!lastResult) { showToast('Run an analysis first.'); return; }
-  doCopy(buildCopyHTML(document.getElementById('output-content')),'All tables copied!');
-}
 function doCopy(html, msg) {
   if (navigator.clipboard && window.ClipboardItem) {
     navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'})})])
@@ -2324,11 +2700,12 @@ function xlBudget(IN, SM, F) {
     const rr = IN.push([xcT(ph, i%2===1), { v: ov ? +ov : '', t: ov ? 'n' : 's', z: F.money, s: XL_STY.input }]);
     ovRefs[ph] = XIN(XA(1,rr));
   });
-  IN.section('Pricing Scenarios');
-  IN.header(['Scenario','Type','Value']);
+  IN.section('Pricing Options');
+  IN.header(['Option','Type','Value']);
   const scRefs = (budgetScenarios || []).map((s, i) => {
-    const rr = IN.push([xcT(s.label || `Scenario ${i+1}`, i%2===1), xcT(s.type==='fee'?'Target Fee':'Discount %', i%2===1), xcIn(+s.value||0, s.type==='fee'?F.money:undefined)]);
-    return { type:s.type, label:s.label, addr: XIN(XA(2,rr)) };
+    const isFee = s.type === 'fee', tl = (SCENARIO_TYPES.find(t => t.v === s.type) || {}).l || s.type;
+    const rr = IN.push([xcT(scenarioLabel(s), i%2===1), xcT(tl, i%2===1), xcIn(scenarioValue(s), isFee ? F.money : undefined)]);
+    return { type:s.type, label:scenarioLabel(s), addr: XIN(XA(2,rr)) };
   });
 
   // Summary
@@ -2356,18 +2733,20 @@ function xlBudget(IN, SM, F) {
     xcTot(`=IFERROR((${XA(4,SM.r)}-SUM(${XIN(XR(costFeeC,mFirst,mLast))}))/${XA(4,SM.r)},"")`, F.pct)]);
   const totFees = XA(4,totR), totStd = XA(2,totR);
 
-  SM.section('Pricing / Discount Scenarios');
-  SM.header(['Scenario',`Fees at ${bl} Rates`,'Scenario Fees', mLbl, 'Profit Margin']);
-  const bFirst = SM.r;
-  SM.push([xcT('Proposed Budget (Baseline)'), xfC(`${totStd}`, F.money), xfC(`${totFees}`, F.money),
-    xfC(metricIsDiscount()?XIFE(`1-${XA(2,SM.r)}/${totStd}`):XIFE(`${XA(2,SM.r)}/${totStd}`), F.pct),
-    xfC(XIFE(`(${XA(2,SM.r)}-SUM(${cfCol}))/${XA(2,SM.r)}`), F.pct)]);
-  scRefs.forEach((s, i) => {
-    const rr = SM.r, feeF = s.type==='fee' ? `${s.addr}` : `${totFees}*(1-${s.addr}/100)`;
-    SM.push([xcT(s.label || (s.type==='fee'?'Target Fee':'Discount Scenario'), (rr-bFirst)%2===1),
-      xfC(`${totStd}`, F.money), xfC(feeF, F.money),
+  SM.section('Pricing Options');
+  SM.header(['Option',`Fees at ${bl} Rates`,'Fee','vs Current Budget', mLbl, 'Profit Margin']);
+  const bFirst = SM.r, totCost = `SUM(${cfCol})`;
+  const scenRow = (label, feeF, alt) => { const rr = SM.r;
+    SM.push([xcT(label, alt), xfC(`${totStd}`, F.money), xfC(feeF, F.money), xfC(XIFE(`${XA(2,rr)}-${totFees}`), F.money),
       xfC(metricIsDiscount()?XIFE(`1-${XA(2,rr)}/${totStd}`):XIFE(`${XA(2,rr)}/${totStd}`), F.pct),
-      xfC(XIFE(`(${XA(2,rr)}-SUM(${cfCol}))/${XA(2,rr)}`), F.pct)]);
+      xfC(XIFE(`(${XA(2,rr)}-${totCost})/${XA(2,rr)}`), F.pct)]); };
+  scenRow('Current budget (proposed rates)', `${totFees}`, false);
+  scRefs.forEach((s, i) => {
+    const feeF = s.type === 'fee' ? `${s.addr}`
+      : s.type === 'contingency' ? `${totFees}*(1+${s.addr}/100)`
+      : s.type === 'margin' ? `IF(${totCost}>0,${totCost}/(1-${s.addr}/100),"")`
+      : `${totStd}*(1-${s.addr}/100)`;
+    scenRow(s.label, feeF, (i+1)%2===1);
   });
 
   // Client summary (fees only, phase or phase+task)
@@ -2407,77 +2786,10 @@ function xlBudget(IN, SM, F) {
   return { inputs:[16,14,...team.map(()=>11),11,13,13,13], summary:[28,11,15,16,14,13,13] };
 }
 
-function exportWord() {
-  if (!lastResult) { alert('Run an analysis first.'); return; }
-  const firm = firmName();
-  const matter = document.getElementById('matter-name').value.trim();
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'2-digit'});
-  const clone = document.getElementById('output-content').cloneNode(true);
-  clone.querySelectorAll('.btn-copy, .no-print').forEach(b=>b.remove());
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>${COPY_STYLE.replace(/^<style>|<\/style>$/g,'')} body{margin:24px;} input{border:none;background:transparent;font:inherit;text-align:right;}</style>
-  </head><body>
-  <div class="output-header"><div class="output-title">${esc(firm)}${matter?' — '+esc(matter):''}</div><div class="output-sub">Generated ${dateStr} · ${esc(RATE_DATA_VERSION)}</div></div>
-  ${clone.innerHTML}
-  </body></html>`;
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob(['\ufeff', html], {type:'application/msword'})),
-    download: `Matter_Budget_${now.toISOString().slice(0,10)}.doc`
-  });
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  showToast('Word document downloaded.');
-}
-
-function exportEmail() {
-  if (!lastResult) { alert('Run an analysis first.'); return; }
-  const firm   = firmName();
-  const matter = document.getElementById('matter-name').value.trim();
-  const lbl    = 'Budget Analysis';
-  const now    = new Date();
-  const dateStr= now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'2-digit'});
-
-  const clone = document.getElementById('output-content').cloneNode(true);
-  clone.querySelectorAll('.btn-copy, .no-print').forEach(b=>b.remove());
-
-  const emlHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;margin:24px;}
-table{border-collapse:collapse;width:100%;font-size:11px;margin-bottom:18px;}
-th{background:#1a2b5e;color:#fff;font-weight:bold;padding:8px 10px;text-align:center;white-space:nowrap;}
-td{padding:7px 10px;border-bottom:1px solid #d0d5e8;}
-tfoot td{font-weight:bold;background:#e8ebf7;border-top:2px solid #1a2b5e;}
-.num{text-align:right;}.label{text-align:left;}.center{text-align:center;}
-.notice-info{font-size:10px;padding:6px 10px;background:#eef0fb;border-left:3px solid #1a2b5e;color:#333;margin:6px 0 12px;}
-.section-label{font-size:11px;font-weight:bold;text-transform:uppercase;color:#1a2b5e;margin:16px 0 6px;border-bottom:1px solid #d0d5e8;padding-bottom:4px;}
-.output-header{border-bottom:2px solid #1a2b5e;padding-bottom:10px;margin-bottom:16px;}
-.output-title{font-size:15px;font-weight:bold;}.output-sub{font-size:11px;color:#555;margin-top:3px;}
-.output-block-bar{margin-bottom:4px;}
-.email-hdr{border-bottom:2px solid #1a2b5e;padding-bottom:10px;margin-bottom:20px;display:flex;justify-content:space-between;}
-.email-firm{font-weight:bold;font-size:14px;color:#1a2b5e;}
-.email-meta{text-align:right;font-size:10px;color:#666;}
-.email-ftr{margin-top:24px;padding-top:10px;border-top:1px solid #d0d5e8;font-size:10px;color:#999;}
-</style></head><body>
-<div class="email-hdr">
-  <div><div class="email-firm">${esc(firm)}</div>${[FIRM_CONFIG.office, FIRM_CONFIG.address].filter(Boolean).map(s=>`<div style="font-size:10px;color:#666;margin-top:1px;">${esc(s)}</div>`).join('')}${matter?`<div style="font-size:11px;color:#333;margin-top:2px;">${esc(matter)}</div>`:''}</div>
-  <div class="email-meta"><div>${esc(RATE_DATA_VERSION)}</div><div>Generated ${dateStr}</div><div style="margin-top:3px;color:#bbb;">${esc(FIRM_CONFIG.disclaimer||'Confidential')}</div></div>
-</div>
-${clone.innerHTML}
-<div class="email-ftr">Generated ${dateStr} · ${esc(RATE_DATA_VERSION)} · Matter Budget Builder</div>
-</body></html>`;
-
-  const eml = `MIME-Version: 1.0\r\nDate: ${now.toUTCString()}\r\nSubject: ${lbl}${matter?' — '+matter:''} — ${firm}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${emlHtml}`;
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob([eml],{type:'application/octet-stream'})),
-    download: `Matter_Budget_${now.toISOString().slice(0,10)}.eml`
-  });
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  showToast('Email draft (.eml) downloaded — open in Outlook to edit and send.');
-}
-
 function clearAll() {
   budgetTimekeepers=[]; budgetRows=[]; budgetPhaseOverrides={}; budgetScenarios=defaultBudgetScenarios();
   budgetClientFormat='phase'; budgetClientNote=''; budgetClientShowHours=true; budgetClientShowRates=false;
+  budgetNarratives={client:null, internal:null};
   lastResult=null;
   rateBasis = FIRM_CONFIG.defaultBasis === 'premium' ? 'premium' : 'standard';
   const rb=document.querySelector(`input[name="rate-basis"][value="${rateBasis}"]`); if(rb) rb.checked=true;

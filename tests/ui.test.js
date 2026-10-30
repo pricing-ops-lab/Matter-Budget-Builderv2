@@ -58,27 +58,42 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   check('Build Budget renders the output', /^\$[\d,]+$/.test(fees.trim()), fees);
 
   // 4. Exports — capture each download and look inside it
-  const grab = async (label) => {
-    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }), page.click(`#output-section .output-actions >> text=${label}`)]);
+  const grab = async (sel) => {
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }), page.click(sel)]);
     const fs = require('fs'); const p = await dl.path();
     return { name: dl.suggestedFilename(), buf: fs.readFileSync(p) };
   };
   try {
-    const x = await grab('Export Excel');
+    const x = await grab('#x-int-excel');
     const sheets = await page.evaluate(b64 => { const wb = XLSX.read(Uint8Array.from(atob(b64), c => c.charCodeAt(0)), { type: 'array' });
       return { names: wb.SheetNames, text: wb.SheetNames.map(n => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n') }; }, x.buf.toString('base64'));
     check('Excel export opens and contains the phases', /\.xlsx$/.test(x.name) && /Pleadings/.test(sheets.text) && /Discovery/.test(sheets.text), x.name + ' ' + sheets.names);
   } catch (e) { check('Excel export opens and contains the phases', false, e.message); }
   try {
-    const w = await grab('Export Word');
+    const w = await grab('#x-int-word');
     const t = w.buf.toString('utf8');
-    check('Word export contains the budget', /\.doc$/.test(w.name) && /Pleadings/.test(t) && /Discovery/.test(t), w.name);
-  } catch (e) { check('Word export contains the budget', false, e.message); }
+    check('internal Word export has the memo and the analysis', /^Internal_Pricing_Review_.*\.doc$/.test(w.name) && /Walk-away fee/.test(t) && /Pricing Options/.test(t) && /Pleadings/.test(t), w.name);
+  } catch (e) { check('internal Word export has the memo and the analysis', false, e.message); }
+  const cost = await page.evaluate(() => eval('curr(lastResult.totals.cost)'));
+  const LEAK = /\b(costs?|margins?|profit|realization|discounts?|walk-away|internal|confidential)\b/i;
+  for (const [sel, ext, name] of [['#x-client-word', 'doc', 'client Word'], ['#x-client-email', 'eml', 'client email draft']]) {
+    try {
+      const f = await grab(sel);
+      const t = f.buf.toString('utf8'), body = t.replace(/<style[\s\S]*?<\/style>/g, '');
+      const leak = body.match(LEAK);
+      check(`${name} is client-safe and complete`, new RegExp(`^Fee_Estimate_.*\\.${ext}$`).test(f.name) && /Pleadings/.test(t) && /Valid for 90 days/.test(t)
+        && !leak && !t.includes(cost) && (ext !== 'eml' || (/^Subject: Fee Estimate/m.test(t) && /^X-Unsent: 1/m.test(t))),
+        f.name + (leak ? ' leaks "' + leak[0] + '"' : '') + (t.includes(cost) ? ' leaks cost ' + cost : ''));
+    } catch (e) { check(`${name} is client-safe and complete`, false, e.message); }
+  }
   try {
-    const m = await grab('Email Draft');
+    const m = await grab('#x-int-email');
     const t = m.buf.toString('utf8');
-    check('Email draft has a subject and the budget', /\.eml$/.test(m.name) && /^Subject: .+/m.test(t) && /Pleadings/.test(t), m.name);
-  } catch (e) { check('Email draft has a subject and the budget', false, e.message); }
+    check('internal email draft has a subject and the memo', /\.eml$/.test(m.name) && /^Subject: Internal Pricing Review/m.test(t) && /Walk-away fee/.test(t), m.name);
+  } catch (e) { check('internal email draft has a subject and the memo', false, e.message); }
+  // Default pricing options are on screen without anyone adding them
+  const opts = await page.$$eval('#output-content table.pricing-options tbody tr', r => r.length);
+  check('default pricing options render', opts === 8, 'rows=' + opts);
 
   // 5. Budget file upload (built in-page with the bundled XLSX, then fed to the real file input)
   const xlsxB64 = await page.evaluate(() => {

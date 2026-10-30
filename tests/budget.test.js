@@ -4,8 +4,9 @@
  *
  * Checks the build opens straight into budget mode with the other analyses
  * hidden, keeps the profit policy in Settings, produces a known budget to the
- * dollar, survives Clear All, and that the self-save guard still recognises the
- * file. Network is blocked throughout.
+ * dollar, prices it against the default options, writes client and internal
+ * language that stays on the right side of the line, survives Clear All, and
+ * that the self-save guard still recognises the file. Network is blocked throughout.
  *
  *   node tests/budget.test.js [path/to/built.html]
  */
@@ -87,7 +88,55 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   if ((k['Total Hours']||{}).v!=='277.0') fail('hours differ');
   if ((k['Profit Margin']||{}).v!=='38%') fail('margin differs');
   if ((k['Profit Margin']||{}).cls!=='green') fail('38% margin should be green against a 20% target');
-  if (out.sections.length!==5) fail('expected the same 5 output sections');
+  const SECTIONS = ['Budget Team Rates','Budget Analysis by Phase','Pricing Options','Internal Review Memo',
+    'Client Summary Formatting','Client / RFP Fee Proposal','Client Budget Summary by Phase'];
+  if (out.sections.join('|') !== SECTIONS.join('|')) fail('output sections: ' + out.sections.join(' | '));
+
+  // 3b. Default pricing options, priced against the profit policy in Settings
+  const po = await p.evaluate(() => {
+    const t = lastResult.totals, rows = lastResult.budgetScenarios.map(r => ({ label:r.label, fee:r.fee, margin:r.margin }));
+    FIRM_CONFIG.cfoFloor = '15'; runAnalysis();
+    const floor15 = lastResult.budgetScenarios.find(r => /Walk-away/.test(r.label));
+    FIRM_CONFIG.cfoFloor = '10'; runAnalysis();
+    return { t, rows, floor15 };
+  });
+  console.log('pricing options:', JSON.stringify(po.rows.map(r => r.label + ' = ' + Math.round(r.fee))));
+  const near = (a, b) => Math.abs(a - b) < 0.5;
+  const row = re => po.rows.find(r => re.test(r.label)) || {};
+  const WANT = ['Current budget (proposed rates)','Standard rates, no discount','Standard rates less 5%','Standard rates less 10%',
+    'Standard rates less 15%','Fixed fee: budget + 10% contingency','Fee at 20% target margin','Walk-away fee (10% profit floor)'];
+  if (po.rows.map(r => r.label).join('|') !== WANT.join('|')) fail('default pricing options');
+  if (!near(row(/less 10%/).fee, po.t.standardFees * 0.9)) fail('10% discount is off standard-rate fees');
+  if (!near(row(/contingency/).fee, po.t.proposedFees * 1.1)) fail('contingency is on top of the budget');
+  if (!near(row(/target margin/).margin, 20) || !near(row(/Walk-away/).margin, 10)) fail('margin options do not land on target/floor');
+  if (!/15% profit floor/.test(po.floor15.label) || !near(po.floor15.fee, po.t.cost / 0.85)) fail('walk-away fee should follow the floor in Settings');
+
+  // 3c. Generated language: internal says everything, client says nothing internal
+  const lang = await p.evaluate(() => {
+    const t = lastResult.totals;
+    const c = buildExportDoc('client'), i = buildExportDoc('internal');
+    setNarrative('client', 'Hand-written proposal text.'); runAnalysis();
+    const kept = narrativeText('client');
+    regenerateNarrative('client');
+    return { cost: curr(t.cost), std: curr(t.standardFees), fees: curr(t.proposedFees),
+      clientText: c.text, clientHtml: c.html, internalText: i.text, internalHtml: i.html,
+      kept, regenerated: narrativeText('client') === lastResult.narratives.client };
+  });
+  console.log('client narrative:\n' + lang.clientText.replace(/^/gm, '    '));
+  console.log('internal memo:\n' + lang.internalText.replace(/^/gm, '    '));
+  const LEAK = /\b(costs?|margins?|profit|profitability|realization|discounts?|walk-away|internal|confidential)\b/i;
+  const leak = lang.clientHtml.replace(/<style[\s\S]*?<\/style>/g, '').match(LEAK);
+  if (leak) fail('client document mentions "' + leak[0] + '"');
+  if (lang.clientHtml.includes(lang.cost)) fail('client document contains the cost figure');
+  if (lang.std !== lang.fees && lang.clientHtml.includes(lang.std)) fail('client document contains standard-rate fees');
+  if (!lang.clientHtml.includes(lang.fees) || !/Due Diligence/.test(lang.clientHtml)) fail('client document missing fees or scope');
+  if (!/Valid for 90 days/.test(lang.clientText)) fail('client assumptions missing');
+  for (const want of ['Profit margin 38%', 'at or above the 20% target', 'Walk-away fee', 'Deepest discount', 'Partner share']) {
+    if (!lang.internalText.includes(want)) fail('internal memo missing "' + want + '"');
+  }
+  if (!/Internal Use/.test(lang.internalHtml)) fail('internal document should carry the confidentiality line');
+  if (lang.kept !== 'Hand-written proposal text.') fail('an edited narrative should survive a rebuild');
+  if (!lang.regenerated) fail('Regenerate should return to the generated text');
 
   // 4. Clear All must leave the tool in budget mode
   const cleared = await p.evaluate(() => { clearAll(); return {
