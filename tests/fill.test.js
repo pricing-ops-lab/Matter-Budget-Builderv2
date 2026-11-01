@@ -23,6 +23,11 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   const results = [];
   const check = (name, ok, detail) => { results.push(!!ok); console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${!ok && detail ? '  — ' + detail : ''}`); };
   const ev = e => page.evaluate(x => eval(x), e);
+  const applyAndReopen = async () => {
+    await page.click('#fill-apply');
+    if (await page.isVisible('#fill-overlay')) throw new Error('pop-up should close after Apply');
+    await page.click('#fill-toggle'); await page.waitForSelector('#fill-overlay', { state: 'visible' });
+  };
   const rowHours = () => ev(`budgetRows.map(r => ({ k: r.phase + ' / ' + r.task, h: { ...r.hours }, t: Object.values(r.hours||{}).reduce((a,b)=>a+(+b||0),0) }))`);
 
   await page.goto('file://' + FILE, { waitUntil: 'load' });
@@ -36,6 +41,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   const team = await ev('budgetTimekeepers.map(t => ({ id: t.tkid, std: t.standardRate }))');
 
   await page.click('#fill-toggle');
+  check('Populate Hours opens as a pop-up', await page.isVisible('#fill-overlay'));
   check('panel opens with one mix row per timekeeper', (await page.$$('#fill-panel .fill-pct')).length === 3);
   check('Apply is disabled until the mix and total are set', await page.isDisabled('#fill-apply'));
 
@@ -48,7 +54,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   await page.locator('.fill-phase', { hasText: 'L300 Discovery' }).locator('.fill-phase-lbl input').check();
   check('ticking a phase selects all its tasks', /\(6 rows selected\)/.test(await page.textContent('#fill-sel-count')));
   check('preview shows hours per row and fees', /each gets <strong>20\.0 h<\/strong>/.test(await page.innerHTML('#fill-preview')) && /proposed rates/.test(await page.textContent('#fill-preview')));
-  await page.click('#fill-apply');
+  await applyAndReopen();
   let rh = await rowHours();
   const disc = rh.filter(r => r.k.startsWith('L300'));
   check('hours land in the six Discovery rows: 4 / 6 / 10 each', disc.length === 6 && disc.every(r => r.h[team[0].id] === 4 && r.h[team[1].id] === 6 && r.h[team[2].id] === 10), JSON.stringify(disc[0]));
@@ -56,13 +62,14 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
     Math.abs(disc.reduce((a, r) => a + r.t, 0) - 120) < 1e-9 && rh.filter(r => !r.k.startsWith('L300')).every(r => r.t === 0));
   const cell = await page.inputValue('#budget-matrix-tbody tr:nth-child(14) td:nth-child(5) input');
   check('the matrix cells show the hours, editable', cell === '10', cell);
+  check('reopening shows what was last applied', /Last applied: 120\.0 h to 6 rows/.test(await page.textContent('#fill-last')));
   check('the mix is kept for the next application', (await page.inputValue('#fill-panel .fill-pct >> nth=2')) === '50');
 
   // 1b. Totals stay exact when the split doesn't divide evenly: 100 h over 7 rows
   await page.click('#fill-panel >> text=None');
   await page.locator('.fill-phase', { hasText: 'L100' }).locator('.fill-phase-lbl input').check();
   await page.fill('#fill-total', '100');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   const l100 = (await rowHours()).filter(r => r.k.startsWith('L100'));
   check('100 h over 7 rows adds up to exactly 100 h, every cell on 0.1 h',
     Math.abs(l100.reduce((a, r) => a + r.t, 0) - 100) < 1e-6 && l100.every(r => Object.values(r.h).every(h => Math.abs(h * 10 - Math.round(h * 10)) < 1e-6)),
@@ -75,7 +82,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   await page.locator('.fill-task', { hasText: 'L240 Dispositive Motions' }).locator('input').check();
   await page.selectOption('#fill-basis', 'fees');
   await page.fill('#fill-total', '50000');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   rh = await rowHours();
   const dm = rh.find(r => r.k.includes('L240'));
   const blended = 0.2 * team[0].std + 0.3 * team[1].std + 0.5 * team[2].std;
@@ -86,11 +93,11 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   // 3. Replace asks before overwriting; Add tops up instead
   dialogs = 0;
   await page.selectOption('#fill-basis', 'hours'); await page.fill('#fill-total', '10');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   rh = await rowHours();
   check('Replace asks before overwriting hours, then overwrites', dialogs === 1 && rh.find(r => r.k.includes('L240')).t === 10);
   await page.check('input[name="fill-mode"][value="add"]');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   check('Add tops up the hours already there', (await rowHours()).find(r => r.k.includes('L240')).t === 20);
 
   // 4. Apply the full total to each row
@@ -99,7 +106,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   await page.locator('.fill-phase', { hasText: 'L500 Appeal' }).locator('.fill-phase-lbl input').check();
   await page.check('input[name="fill-spread"][value="each"]');
   await page.fill('#fill-total', '8');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   check('"full total to each row" gives every selected row the total', (await rowHours()).filter(r => r.k.startsWith('L500')).every(r => r.t === 8));
 
   // 5. Even split, rounding to 0.5
@@ -108,7 +115,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   check('Even split sums to 100%', Math.abs(Object.values(mix).reduce((a, b) => a + b, 0) - 100) < 1e-9, JSON.stringify(mix));
   await page.selectOption('#fill-round', '0.5');
   await page.fill('#fill-total', '10');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   check('rounding to 0.5 h is applied', (await rowHours()).filter(r => r.k.startsWith('L500')).every(r => Object.values(r.h).every(h => (h * 2) % 1 === 0)));
 
   // 5b. Option 2: a total for the matter, allocated across phases by %
@@ -123,7 +130,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   check('a phase allocation that is not 100% is refused', /allocation adds up to 99%/.test(await page.textContent('#fill-preview')) && await page.isDisabled('#fill-apply'));
   await pp.nth(4).fill('5'); PCT.L500 = 5;
   check('the allocation table previews hours per phase', (await page.textContent('#fill-phase-table [data-ph-hours="2"]')).trim() === '400.0');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   let byPh = {}; (await rowHours()).forEach(r => { const p = r.k.slice(0, 4); byPh[p] = (byPh[p] || 0) + r.t; });
   check('1,000 h land as 100 / 200 / 400 / 250 / 50 by phase', Object.entries(PCT).every(([p, v]) => Math.abs(byPh[p] - v * 10) < 1e-6), JSON.stringify(byPh));
   const l300 = (await rowHours()).filter(r => r.k.startsWith('L300')).map(r => r.t);
@@ -131,7 +138,7 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   // fees: $1,000,000 at standard rates
   await page.selectOption('#fill-basis', 'fees');
   await page.fill('#fill-total', '1000000');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   const team2 = await ev('budgetTimekeepers.map(t => ({ id: t.tkid, std: t.standardRate }))');
   const feeBy = {}; (await rowHours()).forEach(r => { const p = r.k.slice(0, 4); feeBy[p] = (feeBy[p] || 0) + team2.reduce((a, t) => a + (r.h[t.id] || 0) * t.std, 0); });
   const feeTot = Object.values(feeBy).reduce((a, b) => a + b, 0);
@@ -146,18 +153,23 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   check('switching hours/fees clears the total', (await page.inputValue('#fill-total')) === '');
   await page.fill('#fill-total', '10');
   await page.fill('#fill-new-phase', 'Advice'); await page.fill('#fill-new-task', 'Initial memo');
-  await page.click('#fill-apply');
+  await applyAndReopen();
   rh = await rowHours();
   check('a named new row is created and filled', rh.length === 1 && rh[0].k === 'Advice / Initial memo' && rh[0].t === 10, JSON.stringify(rh));
 
   // 7. The filled budget builds, and a new timekeeper appears in the mix
+  await page.keyboard.press('Escape');
+  check('Escape closes the pop-up', !(await page.isVisible('#fill-overlay')));
   await page.click('#run-btn-wrap .btn-primary');
   await page.waitForSelector('#output-content .kpi-card');
   check('the filled budget builds', /Advice/.test(await page.textContent('#output-content')));
   await page.evaluate(() => addBudgetTimekeeper('TK006'));
+  await page.click('#fill-toggle');
   check('adding a timekeeper adds them to the mix', (await page.$$('#fill-panel .fill-pct')).length === 4);
+  check('the pop-up blocks the page behind it until closed', await page.isVisible('#fill-overlay'));
+  await page.click('#fill-panel >> text=Cancel');
   await page.click('#run-btn-wrap >> text=Clear All');
-  check('Clear All closes and resets the panel', !(await page.isVisible('#fill-panel')) && (await ev('Object.keys(fillState.mix).length')) === 0);
+  check('Clear All closes and resets the panel', !(await page.isVisible('#fill-overlay')) && (await ev('Object.keys(fillState.mix).length')) === 0);
 
   check('no network requests', external.length === 0, external.join(', '));
   check('no page errors', errors.length === 0, errors.join(' | '));

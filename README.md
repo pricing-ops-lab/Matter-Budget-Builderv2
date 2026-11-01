@@ -93,9 +93,11 @@ writes uploaded templates into the app file (`FIRM_CONFIG.templates`), so they t
 with it. In the budget, **Load Template** fills the hours matrix. Rows left at zero
 hours stay out of every output, and **Remove Empty Rows** clears them from the matrix.
 
-## Fill hours by staffing mix
+## Populate hours from a staffing mix
 
-**Fill Hours by Staffing Mix** (budget toolbar) fills the hours matrix in bulk:
+**Populate Hours…** (budget toolbar) opens a pop-up that fills the hours matrix in bulk.
+Apply Hours writes the hours and closes it; reopen it to apply again a different way.
+The mix and settings are kept between uses, and it shows what was last applied.
 
 1. **Staffing mix:** each budget timekeeper's share of the hours, totalling 100%
    (Even split is one click). It is kept for the session, so you set it once.

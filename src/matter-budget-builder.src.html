@@ -158,7 +158,9 @@
   table.budget-table .w-phase { min-width: 220px; }
   table.budget-table .w-task { min-width: 240px; }
   .tpl-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; padding: 10px 12px; background: #f5f6fb; border: 1px solid var(--border); border-radius: 3px; }
-  .fill-panel { border: 1px solid var(--navy); border-radius: 4px; background: #fbfcfe; padding: 12px 14px; margin: 6px 0 12px; }
+  .fill-overlay { position: fixed; inset: 0; background: rgba(19,31,69,0.5); backdrop-filter: blur(2px); z-index: 5100; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px 24px; overflow-y: auto; }
+  .fill-panel { width: 100%; max-width: 1120px; border-radius: 8px; background: var(--white); padding: 16px 18px; box-shadow: 0 18px 60px rgba(19,31,69,0.35); }
+  .fill-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
   .fill-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; color: var(--navy); font-size: 12px; flex-wrap: wrap; }
   .fill-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
   @media (max-width: 900px) { .fill-grid { grid-template-columns: 1fr; } }
@@ -176,7 +178,6 @@
   .fill-phase-lbl, .fill-task { display: flex; gap: 6px; align-items: center; font-size: 11px; margin: 0; font-weight: normal; cursor: pointer; }
   .fill-tasks { padding-left: 20px; display: grid; gap: 2px; margin-top: 3px; }
   .fill-has { font-size: 9px; color: #667; background: #eef1fa; border-radius: 8px; padding: 0 6px; }
-  #fill-toggle.active { background: var(--navy); box-shadow: inset 0 0 0 2px #9db0dd; }
   .tpl-pick label { font-size: 11px; font-weight: bold; color: var(--navy); margin: 0; }
   .tpl-pick select { width: auto; min-width: 280px; max-width: 100%; }
   .budget-person-wrap { position: relative; min-width: 220px; }
@@ -794,11 +795,13 @@ const RATE_DATA = [
           <span class="text-muted">Expected columns: Phase, Task, TKID or Name, Hours, optional Proposed Rate / Cost Rate.</span>
           <button class="btn btn-ghost btn-sm" onclick="addBudgetRow()">+ Add Phase / Task</button>
           <button class="btn btn-ghost btn-sm" onclick="addBudgetRows(5)">+ Add 5 Rows</button>
-          <button class="btn btn-primary btn-sm" id="fill-toggle" onclick="toggleFillPanel()">Fill Hours by Staffing Mix</button>
+          <button class="btn btn-primary btn-sm" id="fill-toggle" onclick="toggleFillPanel(true)">Populate Hours…</button>
           <button class="btn btn-ghost btn-sm" onclick="removeEmptyBudgetRows()">Remove Empty Rows</button>
           <button class="btn btn-secondary btn-sm" onclick="clearBudgetRows()">Clear Budget</button>
         </div>
-        <div id="fill-panel" class="fill-panel" style="display:none;"></div>
+        <div id="fill-overlay" class="fill-overlay no-print" style="display:none;" onclick="if(event.target===this)toggleFillPanel(false)">
+          <div id="fill-panel" class="fill-panel" role="dialog" aria-modal="true" aria-label="Populate hours"></div>
+        </div>
         <div class="tk-table-wrap">
           <table class="budget-table">
             <thead id="budget-matrix-thead"></thead>
@@ -2188,7 +2191,7 @@ function removeEmptyBudgetRows() {
 // total hours = fee / blended rate, where blended rate = Σ share × rate.
 let fillState = defaultFillState();
 function defaultFillState() {
-  return { open:false, method:'rows', mix:{}, phasePct:{}, basis:'hours', total:'', rate:'standard', spread:'split', round:0.1, mode:'replace', sel:[], newPhase:'', newTask:'' };
+  return { open:false, last:'', method:'rows', mix:{}, phasePct:{}, basis:'hours', total:'', rate:'standard', spread:'split', round:0.1, mode:'replace', sel:[], newPhase:'', newTask:'' };
 }
 // U+2063 (invisible separator): survives being written into an HTML attribute, unlike NUL.
 const rowKey = r => (r.phase || '') + '\u2063' + (r.task || '');
@@ -2196,8 +2199,9 @@ function toggleFillPanel(force) {
   fillState.open = force == null ? !fillState.open : !!force;
   syncBudgetInputs();
   renderFillPanel();
-  if (fillState.open) { const p = document.getElementById('fill-panel'); if (p && p.scrollIntoView) p.scrollIntoView({ block:'nearest' }); }
+  if (fillState.open) { const p = document.getElementById('fill-panel'); if (p) p.scrollTop = 0; const o = document.getElementById('fill-overlay'); if (o) o.scrollTop = 0; }
 }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && fillState.open) toggleFillPanel(false); });
 function fillTeam() { return budgetTimekeepers; }
 function fillMixSum() { return fillTeam().reduce((a, t) => a + (+fillState.mix[t.tkid] || 0), 0); }
 function fillSelectedRows() {
@@ -2285,11 +2289,10 @@ function computeFill() {
 
 function renderFillPanel() {
   const panel = document.getElementById('fill-panel');
-  const btn = document.getElementById('fill-toggle');
-  if (btn) btn.classList.toggle('active', fillState.open);
-  if (!panel) return;
-  if (!fillState.open) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
-  panel.style.display = 'block';
+  const overlay = document.getElementById('fill-overlay');
+  if (!panel || !overlay) return;
+  if (!fillState.open) { overlay.style.display = 'none'; panel.innerHTML = ''; return; }
+  overlay.style.display = 'flex';
   const team = fillTeam();
   // drop selections for rows that no longer exist
   const keys = new Set(budgetRows.map(rowKey));
@@ -2345,12 +2348,13 @@ function renderFillPanel() {
         <div class="text-muted">Phases left at 0% get no hours. Fees column is at proposed rates.</div>`
         : `<div class="notice notice-warn">No phases yet. Load a template above (for example UTBMS Litigation) or add phase and task rows; the allocation is across those phases.</div>`}`;
   panel.innerHTML = `
-    <div class="fill-head"><strong>Fill Hours by Staffing Mix</strong>
+    <div class="fill-head"><strong>Populate Hours</strong>
       <div class="fill-method" role="tablist">
         <button role="tab" id="fill-method-rows" class="${byPhase ? '' : 'on'}" onclick="fillState.method='rows';renderFillPanel()">1 · Selected phases &amp; tasks</button>
         <button role="tab" id="fill-method-phases" class="${byPhase ? 'on' : ''}" onclick="fillState.method='phases';renderFillPanel()">2 · Matter total allocated by phase</button>
       </div>
-      <button class="btn-copy" style="margin-left:auto;" onclick="toggleFillPanel(false)">Close</button></div>
+      <button class="btn-copy" style="margin-left:auto;font-size:14px;padding:2px 8px;" onclick="toggleFillPanel(false)" aria-label="Close">×</button></div>
+    ${fillState.last ? `<div class="notice notice-info" id="fill-last" style="margin:0 0 10px;font-size:10.5px;">Last applied: ${esc(fillState.last)}. Your mix and settings are kept, so change what you need and apply again. Each application ${fillState.mode === 'add' ? 'adds to' : 'replaces'} the hours in the rows it reaches.</div>` : ''}
     <div class="text-muted" style="margin:-4px 0 10px;">${byPhase
       ? 'Enter the total for the whole matter, then the % of it each phase gets. Each phase’s share is split evenly across its tasks, then across people by the mix.'
       : 'Set the mix once, tick phases or tasks, apply. Edit any cell afterwards.'}</div>
@@ -2399,7 +2403,9 @@ function renderFillPanel() {
       </div>
     </div>
     <div id="fill-preview" class="notice notice-info" style="margin-top:10px;"></div>
-    <div><button class="btn btn-primary btn-sm" id="fill-apply" onclick="applyFill()">Apply Hours</button></div>`;
+    <div class="fill-foot"><button class="btn btn-primary btn-sm" id="fill-apply" onclick="applyFill()">Apply Hours</button>
+      <button class="btn btn-secondary btn-sm" onclick="toggleFillPanel(false)">Cancel</button>
+      <span class="text-muted" style="margin:0;">The hours go into the matrix and this closes. Reopen it to apply again a different way.</span></div>`;
   updateFillPreview();
 }
 function updateFillPreview() {
@@ -2485,7 +2491,11 @@ function applyFill() {
       r.hours[t.tkid] = Math.round(h * 100) / 100;
     });
   });
+  fillState.last = `${c.totalHours.toFixed(1)} h to ${targets.length} row${targets.length === 1 ? '' : 's'}${c.phases ? ` across ${c.phases.length} phase${c.phases.length === 1 ? '' : 's'} (matter total by phase)` : ' (selected rows)'}`;
+  fillState.open = false;
   renderBudgetMatrix(); refreshBudgetOutput(0);
+  const firstRow = targets[0] && document.querySelector(`#budget-matrix-tbody tr:nth-child(${budgetRows.indexOf(targets[0]) + 1})`);
+  if (firstRow && firstRow.scrollIntoView) firstRow.scrollIntoView({ block: 'center', behavior: 'smooth' });
   showToast(`Applied ${c.totalHours.toFixed(1)} hours to ${targets.length} row${targets.length === 1 ? '' : 's'}${c.phases ? ` across ${c.phases.length} phase${c.phases.length === 1 ? '' : 's'}` : ''}. Edit any cell to adjust.`);
 }
 
