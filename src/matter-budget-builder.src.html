@@ -163,6 +163,10 @@
   .fill-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
   @media (max-width: 900px) { .fill-grid { grid-template-columns: 1fr; } }
   .fill-step { display: flex; gap: 6px; align-items: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--navy); margin-bottom: 6px; }
+  .fill-method { display: inline-flex; border: 1px solid var(--navy); border-radius: 4px; overflow: hidden; }
+  .fill-method button { font: inherit; font-size: 11px; font-weight: 600; padding: 5px 12px; border: 0; background: var(--white); color: var(--navy); cursor: pointer; }
+  .fill-method button + button { border-left: 1px solid var(--navy); }
+  .fill-method button.on { background: var(--navy); color: var(--white); }
   .fill-pct { width: 70px !important; text-align: right; padding: 3px 6px !important; }
   .fill-opts { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 11px; margin: 4px 0; }
   .fill-opts label { display: inline-flex; gap: 5px; align-items: center; margin: 0; font-weight: normal; }
@@ -2184,7 +2188,7 @@ function removeEmptyBudgetRows() {
 // total hours = fee / blended rate, where blended rate = Σ share × rate.
 let fillState = defaultFillState();
 function defaultFillState() {
-  return { open:false, mix:{}, basis:'hours', total:'', rate:'standard', spread:'split', round:0.1, mode:'replace', sel:[], newPhase:'', newTask:'' };
+  return { open:false, method:'rows', mix:{}, phasePct:{}, basis:'hours', total:'', rate:'standard', spread:'split', round:0.1, mode:'replace', sel:[], newPhase:'', newTask:'' };
 }
 // U+2063 (invisible separator): survives being written into an HTML attribute, unlike NUL.
 const rowKey = r => (r.phase || '') + '\u2063' + (r.task || '');
@@ -2203,48 +2207,80 @@ function fillSelectedRows() {
 function fillRate(t) { return fillState.rate === 'proposed' ? (+t.proposedRate || 0) : (+t.standardRate || 0); }
 
 // Works out the hours without touching the budget. Returns {error} or the plan.
+// Two methods share the mix and the total:
+//   rows   — option 1: tick phases/tasks; the total is split across them (or given to each)
+//   phases — option 2: the total is for the whole matter and is allocated across phases by %,
+//            then split evenly across each phase's tasks
+function fillPhaseGroups() {
+  const groups = [];
+  budgetRows.forEach(r => {
+    const p = r.phase || 'Unassigned';
+    let g = groups.find(x => x.phase === p); if (!g) groups.push(g = { phase: p, rows: [] });
+    g.rows.push(r);
+  });
+  return groups;
+}
+function fillPhasePctSum() { return fillPhaseGroups().reduce((a, g) => a + (+fillState.phasePct[g.phase] || 0), 0); }
+function shareUnits(units, weights) {
+  // Largest-remainder rounding: whole units shared by weight, adding up to `units` exactly.
+  const sum = weights.reduce((a, b) => a + b, 0) || 1;
+  const raw = weights.map(w => units * w / sum), base = raw.map(Math.floor);
+  let left = units - base.reduce((a, b) => a + b, 0);
+  raw.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).forEach(([, i]) => { if (left > 0) { base[i]++; left--; } });
+  return base;
+}
 function computeFill() {
   const team = fillTeam();
   if (!team.length) return { error:'Add timekeepers to the budget first.' };
   const sum = fillMixSum();
   if (Math.abs(sum - 100) > 0.5) return { error:`The staffing mix adds up to ${+sum.toFixed(1)}%. It needs to total 100%.` };
   const total = +fillState.total || 0;
-  if (total <= 0) return { error: fillState.basis === 'fees' ? 'Enter the total fee to spread.' : 'Enter the total hours to spread.' };
-  let rows = fillSelectedRows();
-  const creating = !rows.length && (fillState.newPhase.trim() || fillState.newTask.trim());
-  if (!rows.length && !creating) return { error:'Select at least one phase or task below.' };
-  const nRows = creating ? 1 : rows.length;
+  const byPhase = fillState.method === 'phases';
+  if (total <= 0) return { error: fillState.basis === 'fees' ? `Enter the total fee${byPhase ? ' for the matter' : ' to spread'}.` : `Enter the total hours${byPhase ? ' for the matter' : ' to spread'}.` };
   let totalHours = total;
   if (fillState.basis === 'fees') {
     const blended = team.reduce((a, t) => a + (+fillState.mix[t.tkid] || 0) / 100 * fillRate(t), 0);
     if (blended <= 0) return { error:`The timekeepers in the mix have no ${fillState.rate} rate to price the fee with.` };
     totalHours = total / blended;
   }
-  // Largest-remainder rounding, twice: the total is shared across rows in whole rounding
-  // steps, then each row's steps are shared across people by the mix. Every cell lands on
-  // the step and the hours add up to the total typed (to the nearest step).
   const step = fillState.round;
-  const share = (units, weights) => {
-    const sum = weights.reduce((a, b) => a + b, 0) || 1;
-    const raw = weights.map(w => units * w / sum), base = raw.map(Math.floor);
-    let left = units - base.reduce((a, b) => a + b, 0);
-    raw.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).forEach(([, i]) => { if (left > 0) { base[i]++; left--; } });
-    return base;
-  };
-  const rowUnits = fillState.spread === 'each'
-    ? Array(nRows).fill(Math.round(totalHours / step))
-    : share(Math.round(totalHours / step), Array(nRows).fill(1));
+  // Build the target rows and how many rounding steps each one gets.
+  let rows = [], rowUnits = [], creating = false, phases = null;
+  if (byPhase) {
+    const groups = fillPhaseGroups();
+    if (!groups.length) return { error:'Load a template or add phase and task rows first; the allocation is across those phases.' };
+    const psum = fillPhasePctSum();
+    if (Math.abs(psum - 100) > 0.5) return { error:`The phase allocation adds up to ${+psum.toFixed(1)}%. It needs to total 100%.` };
+    const pcts = groups.map(g => +fillState.phasePct[g.phase] || 0);
+    const pUnits = shareUnits(Math.round(totalHours / step), pcts);
+    phases = [];
+    groups.forEach((g, gi) => {
+      if (pcts[gi] <= 0) return;
+      const u = shareUnits(pUnits[gi], g.rows.map(() => 1));
+      g.rows.forEach((r, k) => { rows.push({ r, i: budgetRows.indexOf(r) }); rowUnits.push(u[k]); });
+      phases.push({ phase: g.phase, pct: pcts[gi], tasks: g.rows.length, start: rows.length - g.rows.length, end: rows.length });
+    });
+  } else {
+    rows = fillSelectedRows();
+    creating = !rows.length && !!(fillState.newPhase.trim() || fillState.newTask.trim());
+    if (!rows.length && !creating) return { error:'Select at least one phase or task below.' };
+    const n = creating ? 1 : rows.length;
+    rowUnits = fillState.spread === 'each' ? Array(n).fill(Math.round(totalHours / step)) : shareUnits(Math.round(totalHours / step), Array(n).fill(1));
+  }
+  const nRows = rowUnits.length;
   const mixW = team.map(t => +fillState.mix[t.tkid] || 0);
-  const rowsHours = rowUnits.map(u => { const h = {}; share(u, mixW).forEach((n, i) => { h[team[i].tkid] = Math.round(n * step * 100) / 100; }); return h; });
-  const hours = rowsHours[0];
+  const rowsHours = rowUnits.map(u => { const h = {}; shareUnits(u, mixW).forEach((n, i) => { h[team[i].tkid] = Math.round(n * step * 100) / 100; }); return h; });
   const rowSum = h => team.reduce((a, t) => a + h[t.tkid], 0);
+  const feesOf = (hs, key) => hs.reduce((a, h) => a + team.reduce((b, t) => b + h[t.tkid] * (+t[key] || 0), 0), 0);
+  const hours = rowsHours[0];
   const rowHours = rowSum(hours);
-  const sumAt = key => rowsHours.reduce((a, h) => a + team.reduce((b, t) => b + h[t.tkid] * (+t[key] || 0), 0), 0);
+  const varies = rowsHours.some(h => rowSum(h) !== rowHours);
+  if (phases) phases.forEach(p => { const hs = rowsHours.slice(p.start, p.end); p.hours = hs.reduce((a, h) => a + rowSum(h), 0); p.prop = feesOf(hs, 'proposedRate'); p.std = feesOf(hs, 'standardRate'); });
   const overwrite = fillState.mode === 'replace' && !creating
     ? rows.filter(x => Object.values(x.r.hours || {}).some(h => +h > 0)).length : 0;
-  const varies = rowsHours.some(h => rowSum(h) !== rowHours);
-  return { team, hours, rowsHours, varies, nRows, creating, rows, rowHours, totalHours: rowsHours.reduce((a, h) => a + rowSum(h), 0),
-           stdFees: sumAt('standardRate'), propFees: sumAt('proposedRate'), overwrite };
+  return { team, hours, rowsHours, varies, nRows, creating, rows, rowHours, phases,
+           totalHours: rowsHours.reduce((a, h) => a + rowSum(h), 0),
+           stdFees: feesOf(rowsHours, 'standardRate'), propFees: feesOf(rowsHours, 'proposedRate'), overwrite };
 }
 
 function renderFillPanel() {
@@ -2292,10 +2328,32 @@ function renderFillPanel() {
     const cb = panel.querySelector(`input[data-phase="${gi}"]`); if (cb) cb.indeterminate = n > 0 && n < g.rows.length;
   }), 0);
 
+  const byPhase = fillState.method === 'phases';
+  const pg = fillPhaseGroups();
+  const phaseAllocHtml = `
+        <div class="fill-step">3 · Allocate across phases
+          <span style="margin-left:auto;"><button class="btn-copy" onclick="fillEvenPhases()">Even across phases</button>
+          <button class="btn-copy" onclick="fillState.phasePct={};renderFillPanel()">Clear</button></span></div>
+        ${pg.length ? `<div class="fill-rows" style="padding:0;"><table class="map-table" style="margin:0;" id="fill-phase-table">
+          <thead><tr><th>Phase</th><th>Tasks</th><th>% of ${fillState.basis === 'fees' ? 'fees' : 'hours'}</th><th class="num">Hours</th><th class="num">Fees</th></tr></thead>
+          <tbody>${pg.map((g, gi) => `<tr>
+            <td>${esc(g.phase)}</td><td>${g.rows.length}</td>
+            <td style="white-space:nowrap;"><input type="number" min="0" max="100" step="1" class="fill-pct fill-phase-pct" data-gi="${gi}" value="${escAttr(String(fillState.phasePct[g.phase] ?? ''))}" placeholder="0" oninput="setFillPhasePct(${gi}, this.value)"> %</td>
+            <td class="num" data-ph-hours="${gi}">—</td><td class="num" data-ph-fees="${gi}">—</td></tr>`).join('')}</tbody>
+          <tfoot><tr><td colspan="2"><strong>Total</strong></td><td id="fill-phase-sum"></td><td class="num" id="fill-ph-tot-h"></td><td class="num" id="fill-ph-tot-f"></td></tr></tfoot>
+        </table></div>
+        <div class="text-muted">Phases left at 0% get no hours. Fees column is at proposed rates.</div>`
+        : `<div class="notice notice-warn">No phases yet. Load a template above (for example UTBMS Litigation) or add phase and task rows; the allocation is across those phases.</div>`}`;
   panel.innerHTML = `
     <div class="fill-head"><strong>Fill Hours by Staffing Mix</strong>
-      <span class="text-muted" style="margin:0;">Set the mix once, pick phases or tasks, apply. Edit any cell afterwards.</span>
+      <div class="fill-method" role="tablist">
+        <button role="tab" id="fill-method-rows" class="${byPhase ? '' : 'on'}" onclick="fillState.method='rows';renderFillPanel()">1 · Selected phases &amp; tasks</button>
+        <button role="tab" id="fill-method-phases" class="${byPhase ? 'on' : ''}" onclick="fillState.method='phases';renderFillPanel()">2 · Matter total allocated by phase</button>
+      </div>
       <button class="btn-copy" style="margin-left:auto;" onclick="toggleFillPanel(false)">Close</button></div>
+    <div class="text-muted" style="margin:-4px 0 10px;">${byPhase
+      ? 'Enter the total for the whole matter, then the % of it each phase gets. Each phase’s share is split evenly across its tasks, then across people by the mix.'
+      : 'Set the mix once, tick phases or tasks, apply. Edit any cell afterwards.'}</div>
     ${team.length ? '' : `<div class="notice notice-warn">Add timekeepers above first; the mix is set per person.</div>`}
     <div class="fill-grid">
       <div>
@@ -2306,10 +2364,10 @@ function renderFillPanel() {
             <button class="btn-copy" onclick="fillState.mix={};renderFillPanel()">Clear</button></td>
             <td class="num" id="fill-sum"></td></tr></tfoot></table>
 
-        <div class="fill-step" style="margin-top:12px;">2 · Total to spread</div>
+        <div class="fill-step" style="margin-top:12px;">2 · ${byPhase ? 'Total for the matter' : 'Total to spread'}</div>
         <div class="form-row" style="align-items:flex-end;margin-bottom:6px;">
           <div class="form-group w120"><label>Total is</label>
-            <select id="fill-basis" onchange="fillState.basis=this.value;renderFillPanel()">
+            <select id="fill-basis" onchange="fillState.basis=this.value;fillState.total='';renderFillPanel()">
               <option value="hours"${fillState.basis === 'hours' ? ' selected' : ''}>Hours</option>
               <option value="fees"${fillState.basis === 'fees' ? ' selected' : ''}>Fees</option></select></div>
           <div class="form-group w120"><label>${fillState.basis === 'fees' ? 'Total fee (' + esc(currency) + ')' : 'Total hours'}</label>
@@ -2319,7 +2377,7 @@ function renderFillPanel() {
               <option value="standard"${fillState.rate === 'standard' ? ' selected' : ''}>${esc(baseLabel())} rates</option>
               <option value="proposed"${fillState.rate === 'proposed' ? ' selected' : ''}>Proposed rates</option></select></div>` : ''}
         </div>
-        <div class="fill-opts">
+        <div class="fill-opts" style="${byPhase ? 'display:none;' : ''}">
           <label><input type="radio" name="fill-spread" value="split" ${fillState.spread === 'split' ? 'checked' : ''} onchange="fillState.spread='split';updateFillPreview()"> Split the total evenly across the selected rows</label>
           <label><input type="radio" name="fill-spread" value="each" ${fillState.spread === 'each' ? 'checked' : ''} onchange="fillState.spread='each';updateFillPreview()"> Apply the full total to each selected row</label>
         </div>
@@ -2331,13 +2389,13 @@ function renderFillPanel() {
               ${[0.1, 0.25, 0.5, 1].map(v => `<option value="${v}"${fillState.round === v ? ' selected' : ''}>${v} h</option>`).join('')}</select></label>
         </div>
       </div>
-      <div>
+      <div>${byPhase ? phaseAllocHtml : `
         <div class="fill-step">3 · Apply to <span class="text-muted" style="margin:0;" id="fill-sel-count"></span>
           <span style="margin-left:auto;"><button class="btn-copy" onclick="setFillAll(true)">All</button> <button class="btn-copy" onclick="setFillAll(false)">None</button></span></div>
         <div class="fill-rows">${phaseHtml || `<div class="text-muted" style="padding:6px;">No phase or task rows yet. Load a template above, or name a new row:</div>`}</div>
         ${groups.length ? '' : `<div class="form-row" style="margin-top:6px;">
           <div class="form-group"><label>Phase</label><input type="text" id="fill-new-phase" value="${escAttr(fillState.newPhase)}" oninput="fillState.newPhase=this.value;updateFillPreview()"></div>
-          <div class="form-group"><label>Task <span class="note">(optional)</span></label><input type="text" id="fill-new-task" value="${escAttr(fillState.newTask)}" oninput="fillState.newTask=this.value;updateFillPreview()"></div></div>`}
+          <div class="form-group"><label>Task <span class="note">(optional)</span></label><input type="text" id="fill-new-task" value="${escAttr(fillState.newTask)}" oninput="fillState.newTask=this.value;updateFillPreview()"></div></div>`}`}
       </div>
     </div>
     <div id="fill-preview" class="notice notice-info" style="margin-top:10px;"></div>
@@ -2349,17 +2407,46 @@ function updateFillPreview() {
   if (sumEl) { const s = fillMixSum(); sumEl.innerHTML = `<strong style="color:${Math.abs(s - 100) <= 0.5 ? '#1a6b2e' : '#b42318'}">${+s.toFixed(1)}%</strong>`; }
   const cnt = document.getElementById('fill-sel-count');
   if (cnt) { const n = fillSelectedRows().length; cnt.textContent = `(${n} row${n === 1 ? '' : 's'} selected)`; }
+  const psEl = document.getElementById('fill-phase-sum');
+  if (psEl) { const s = fillPhasePctSum(); psEl.innerHTML = `<strong style="color:${Math.abs(s - 100) <= 0.5 ? '#1a6b2e' : '#b42318'}">${+s.toFixed(1)}%</strong>`; }
   const box = document.getElementById('fill-preview'), btn = document.getElementById('fill-apply');
   if (!box) return;
   const c = computeFill();
   if (btn) btn.disabled = !!c.error;
+  document.querySelectorAll('[data-ph-hours],[data-ph-fees]').forEach(el => { el.textContent = '—'; });
+  ['fill-ph-tot-h', 'fill-ph-tot-f'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
   if (c.error) { box.className = 'notice notice-warn'; box.style.marginTop = '10px'; box.textContent = c.error; return; }
+  if (c.phases) {
+    const pg = fillPhaseGroups();
+    c.phases.forEach(p => { const gi = pg.findIndex(g => g.phase === p.phase);
+      const h = document.querySelector(`[data-ph-hours="${gi}"]`), f = document.querySelector(`[data-ph-fees="${gi}"]`);
+      if (h) h.textContent = p.hours.toFixed(1); if (f) f.textContent = curr(p.prop); });
+    const th = document.getElementById('fill-ph-tot-h'), tf = document.getElementById('fill-ph-tot-f');
+    if (th) th.textContent = c.totalHours.toFixed(1); if (tf) tf.textContent = curr(c.propFees);
+  }
   box.className = 'notice notice-info'; box.style.marginTop = '10px';
   const per = c.team.filter(t => c.hours[t.tkid] > 0).map(t => `${esc(t.name)} ${c.hours[t.tkid].toFixed(fillState.round < 1 ? (fillState.round < 0.5 ? 2 : 1) : 0).replace(/\.?0+$/, '')} h`).join(' · ');
-  box.innerHTML = `${c.creating ? 'New row' : `<strong>${c.nRows}</strong> row${c.nRows === 1 ? '' : 's'}`}, each gets ${c.varies ? 'about ' : ''}<strong>${c.rowHours.toFixed(1)} h</strong>: ${per || '—'}${c.varies ? ' <span class="text-muted" style="margin:0;">(rows differ by one rounding step so the total stays exact)</span>' : ''}<br>
+  box.innerHTML = c.phases ? `<strong>${c.phases.length}</strong> phase${c.phases.length === 1 ? '' : 's'}, <strong>${c.nRows}</strong> task row${c.nRows === 1 ? '' : 's'}.
+    Adds <strong>${c.totalHours.toFixed(1)} h</strong> in all: ${curr(c.propFees)} at proposed rates, ${curr(c.stdFees)} at ${esc(baseLabel().toLowerCase())} rates.
+    ${fillState.basis === 'fees' ? `<span class="text-muted" style="margin:0;">Target ${curr(+fillState.total || 0)} at ${fillState.rate} rates; any difference is hour rounding.</span>` : ''}
+    ${c.overwrite ? `<br><span style="color:#9a6f00;font-weight:600;">${c.overwrite} row${c.overwrite === 1 ? ' has' : 's have'} hours already; Replace overwrites them.</span>` : ''}`
+  : `${c.creating ? 'New row' : `<strong>${c.nRows}</strong> row${c.nRows === 1 ? '' : 's'}`}, each gets ${c.varies ? 'about ' : ''}<strong>${c.rowHours.toFixed(1)} h</strong>: ${per || '—'}${c.varies ? ' <span class="text-muted" style="margin:0;">(rows differ by one rounding step so the total stays exact)</span>' : ''}<br>
     Adds <strong>${c.totalHours.toFixed(1)} h</strong> in all: ${curr(c.propFees)} at proposed rates, ${curr(c.stdFees)} at ${esc(baseLabel().toLowerCase())} rates.
     ${fillState.basis === 'fees' ? `<span class="text-muted" style="margin:0;">Target ${curr((+fillState.total || 0) * (fillState.spread === 'each' ? c.nRows : 1))}; the difference is hour rounding.</span>` : ''}
     ${c.overwrite ? `<br><span style="color:#9a6f00;font-weight:600;">${c.overwrite} selected row${c.overwrite === 1 ? ' has' : 's have'} hours already; Replace overwrites them.</span>` : ''}`;
+}
+function setFillPhasePct(gi, v) {
+  const g = fillPhaseGroups()[gi]; if (!g) return;
+  const n = parseFloat(v);
+  if (Number.isFinite(n) && n > 0) fillState.phasePct[g.phase] = Math.min(100, n); else delete fillState.phasePct[g.phase];
+  updateFillPreview();
+}
+function fillEvenPhases() {
+  const pg = fillPhaseGroups(); if (!pg.length) return;
+  const base = Math.floor(1000 / pg.length) / 10;
+  fillState.phasePct = {};
+  pg.forEach((g, i) => { fillState.phasePct[g.phase] = i === 0 ? +(100 - base * (pg.length - 1)).toFixed(1) : base; });
+  renderFillPanel();
 }
 function setFillMix(tkid, v) { const n = parseFloat(v); if (Number.isFinite(n) && n > 0) fillState.mix[tkid] = Math.min(100, n); else delete fillState.mix[tkid]; updateFillPreview(); }
 function fillEvenSplit() {
@@ -2383,7 +2470,7 @@ function applyFill() {
   syncBudgetInputs();
   const c = computeFill();
   if (c.error) { showToast(c.error); return; }
-  if (c.overwrite && !confirm(`${c.overwrite} of the selected rows already ${c.overwrite === 1 ? 'has' : 'have'} hours. Replace them with the staffing mix?`)) return;
+  if (c.overwrite && !confirm(`${c.overwrite} of the ${c.phases ? 'rows in those phases' : 'selected rows'} already ${c.overwrite === 1 ? 'has' : 'have'} hours. Replace them with the staffing mix?`)) return;
   let targets = c.rows.map(x => x.r);
   if (c.creating) {
     const row = { phase: fillState.newPhase.trim(), task: fillState.newTask.trim(), hours: {} };
@@ -2399,7 +2486,7 @@ function applyFill() {
     });
   });
   renderBudgetMatrix(); refreshBudgetOutput(0);
-  showToast(`Applied ${c.totalHours.toFixed(1)} hours to ${targets.length} row${targets.length === 1 ? '' : 's'}. Edit any cell to adjust.`);
+  showToast(`Applied ${c.totalHours.toFixed(1)} hours to ${targets.length} row${targets.length === 1 ? '' : 's'}${c.phases ? ` across ${c.phases.length} phase${c.phases.length === 1 ? '' : 's'}` : ''}. Edit any cell to adjust.`);
 }
 
 function handleRateMasterUpload(event) {

@@ -101,8 +101,13 @@ hours stay out of every output, and **Remove Empty Rows** clears them from the m
    (Even split is one click). It is kept for the session, so you set it once.
 2. **Total:** hours, or a fee. A fee is converted to hours at each person's rate
    (standard by default, or proposed): hours = fee ÷ (Σ share × rate).
-3. **Apply to:** tick whole phases and/or individual tasks. The total is either split
+3. **Option 1 — apply to selected rows:** tick whole phases and/or individual tasks. The total is either split
    evenly across them or applied to each one. **Replace** or **Add to** the hours there.
+
+**Option 2 — matter total allocated by phase:** enter the total for the whole matter
+(hours or fees) and the % each phase gets (Even across phases is one click; phases
+at 0% get nothing). Each phase's share is split evenly across its tasks, then across
+people by the mix. The allocation table previews hours and fees per phase.
 
 Hours are rounded to 0.1, 0.25, 0.5 or 1 h with largest-remainder rounding, so every
 cell lands on the step and the hours add up to the total typed. A preview shows the

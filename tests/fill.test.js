@@ -111,9 +111,40 @@ const FILE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'matter-
   await page.click('#fill-apply');
   check('rounding to 0.5 h is applied', (await rowHours()).filter(r => r.k.startsWith('L500')).every(r => Object.values(r.h).every(h => (h * 2) % 1 === 0)));
 
+  // 5b. Option 2: a total for the matter, allocated across phases by %
+  await page.click('#fill-method-phases');
+  check('option 2 shows one allocation row per phase', (await page.$$('#fill-phase-table .fill-phase-pct')).length === 5);
+  await page.selectOption('#fill-round', '0.1');
+  await page.selectOption('#fill-basis', 'hours');
+  await page.fill('#fill-total', '1000');
+  const PCT = { 'L100': 10, 'L200': 20, 'L300': 40, 'L400': 25, 'L500': 4 };
+  const pp = page.locator('#fill-phase-table .fill-phase-pct');
+  for (let i = 0; i < 5; i++) await pp.nth(i).fill(String(Object.values(PCT)[i]));
+  check('a phase allocation that is not 100% is refused', /allocation adds up to 99%/.test(await page.textContent('#fill-preview')) && await page.isDisabled('#fill-apply'));
+  await pp.nth(4).fill('5'); PCT.L500 = 5;
+  check('the allocation table previews hours per phase', (await page.textContent('#fill-phase-table [data-ph-hours="2"]')).trim() === '400.0');
+  await page.click('#fill-apply');
+  let byPh = {}; (await rowHours()).forEach(r => { const p = r.k.slice(0, 4); byPh[p] = (byPh[p] || 0) + r.t; });
+  check('1,000 h land as 100 / 200 / 400 / 250 / 50 by phase', Object.entries(PCT).every(([p, v]) => Math.abs(byPh[p] - v * 10) < 1e-6), JSON.stringify(byPh));
+  const l300 = (await rowHours()).filter(r => r.k.startsWith('L300')).map(r => r.t);
+  check('each phase is split evenly across its tasks', Math.max(...l300) - Math.min(...l300) <= 0.1 + 1e-9, l300.join(','));
+  // fees: $1,000,000 at standard rates
+  await page.selectOption('#fill-basis', 'fees');
+  await page.fill('#fill-total', '1000000');
+  await page.click('#fill-apply');
+  const team2 = await ev('budgetTimekeepers.map(t => ({ id: t.tkid, std: t.standardRate }))');
+  const feeBy = {}; (await rowHours()).forEach(r => { const p = r.k.slice(0, 4); feeBy[p] = (feeBy[p] || 0) + team2.reduce((a, t) => a + (r.h[t.id] || 0) * t.std, 0); });
+  const feeTot = Object.values(feeBy).reduce((a, b) => a + b, 0);
+  check('a $1,000,000 matter fee converts to hours at standard rates, phases near their %',
+    Math.abs(feeTot - 1e6) / 1e6 < 0.005 && Object.entries(PCT).every(([p, v]) => Math.abs(feeBy[p] / feeTot * 100 - v) < 0.5), JSON.stringify(Object.fromEntries(Object.entries(feeBy).map(([k, v]) => [k, Math.round(v)]))));
+  await page.click('#fill-method-rows');
+  await page.selectOption('#fill-basis', 'hours');
+
   // 6. With no rows yet, the panel can create one
   await page.evaluate(() => clearBudgetRows());
   check('with no rows, the panel offers a new row', await page.isVisible('#fill-new-phase'));
+  check('switching hours/fees clears the total', (await page.inputValue('#fill-total')) === '');
+  await page.fill('#fill-total', '10');
   await page.fill('#fill-new-phase', 'Advice'); await page.fill('#fill-new-task', 'Initial memo');
   await page.click('#fill-apply');
   rh = await rowHours();
