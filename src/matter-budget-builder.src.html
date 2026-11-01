@@ -158,6 +158,21 @@
   table.budget-table .w-phase { min-width: 220px; }
   table.budget-table .w-task { min-width: 240px; }
   .tpl-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; padding: 10px 12px; background: #f5f6fb; border: 1px solid var(--border); border-radius: 3px; }
+  .fill-panel { border: 1px solid var(--navy); border-radius: 4px; background: #fbfcfe; padding: 12px 14px; margin: 6px 0 12px; }
+  .fill-head { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; color: var(--navy); font-size: 12px; flex-wrap: wrap; }
+  .fill-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+  @media (max-width: 900px) { .fill-grid { grid-template-columns: 1fr; } }
+  .fill-step { display: flex; gap: 6px; align-items: center; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--navy); margin-bottom: 6px; }
+  .fill-pct { width: 70px !important; text-align: right; padding: 3px 6px !important; }
+  .fill-opts { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 11px; margin: 4px 0; }
+  .fill-opts label { display: inline-flex; gap: 5px; align-items: center; margin: 0; font-weight: normal; }
+  .fill-rows { max-height: 330px; overflow-y: auto; border: 1px solid var(--border); border-radius: 3px; background: var(--white); padding: 4px 8px; }
+  .fill-phase { padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .fill-phase:last-child { border-bottom: none; }
+  .fill-phase-lbl, .fill-task { display: flex; gap: 6px; align-items: center; font-size: 11px; margin: 0; font-weight: normal; cursor: pointer; }
+  .fill-tasks { padding-left: 20px; display: grid; gap: 2px; margin-top: 3px; }
+  .fill-has { font-size: 9px; color: #667; background: #eef1fa; border-radius: 8px; padding: 0 6px; }
+  #fill-toggle.active { background: var(--navy); box-shadow: inset 0 0 0 2px #9db0dd; }
   .tpl-pick label { font-size: 11px; font-weight: bold; color: var(--navy); margin: 0; }
   .tpl-pick select { width: auto; min-width: 280px; max-width: 100%; }
   .budget-person-wrap { position: relative; min-width: 220px; }
@@ -775,9 +790,11 @@ const RATE_DATA = [
           <span class="text-muted">Expected columns: Phase, Task, TKID or Name, Hours, optional Proposed Rate / Cost Rate.</span>
           <button class="btn btn-ghost btn-sm" onclick="addBudgetRow()">+ Add Phase / Task</button>
           <button class="btn btn-ghost btn-sm" onclick="addBudgetRows(5)">+ Add 5 Rows</button>
+          <button class="btn btn-primary btn-sm" id="fill-toggle" onclick="toggleFillPanel()">Fill Hours by Staffing Mix</button>
           <button class="btn btn-ghost btn-sm" onclick="removeEmptyBudgetRows()">Remove Empty Rows</button>
           <button class="btn btn-secondary btn-sm" onclick="clearBudgetRows()">Clear Budget</button>
         </div>
+        <div id="fill-panel" class="fill-panel" style="display:none;"></div>
         <div class="tk-table-wrap">
           <table class="budget-table">
             <thead id="budget-matrix-thead"></thead>
@@ -1393,6 +1410,7 @@ function renderBudgetTimekeepers() {
   </tr>`).join('');
 }
 function renderBudgetMatrix() {
+  renderFillPanel();   // its row list mirrors the matrix
   const th = document.getElementById('budget-matrix-thead');
   const tb = document.getElementById('budget-matrix-tbody');
   if (!th || !tb) return;
@@ -2155,6 +2173,233 @@ function removeEmptyBudgetRows() {
   budgetRows = budgetRows.filter(r => Object.values(r.hours || {}).some(h => +h > 0));
   renderBudgetMatrix(); refreshBudgetOutput(0);
   showToast(before === budgetRows.length ? 'No empty rows to remove.' : `Removed ${before - budgetRows.length} row(s) with no hours.`);
+}
+
+// ════════════════════════════
+// FILL HOURS BY STAFFING MIX
+// ════════════════════════════
+// Enter a staffing mix once (each timekeeper's share of the hours) and a total, either
+// hours or a fee. Pick phases and/or tasks, and the hours are written into those rows
+// for the person to edit. A fee total is turned into hours at each timekeeper's rate:
+// total hours = fee / blended rate, where blended rate = Σ share × rate.
+let fillState = defaultFillState();
+function defaultFillState() {
+  return { open:false, mix:{}, basis:'hours', total:'', rate:'standard', spread:'split', round:0.1, mode:'replace', sel:[], newPhase:'', newTask:'' };
+}
+// U+2063 (invisible separator): survives being written into an HTML attribute, unlike NUL.
+const rowKey = r => (r.phase || '') + '\u2063' + (r.task || '');
+function toggleFillPanel(force) {
+  fillState.open = force == null ? !fillState.open : !!force;
+  syncBudgetInputs();
+  renderFillPanel();
+  if (fillState.open) { const p = document.getElementById('fill-panel'); if (p && p.scrollIntoView) p.scrollIntoView({ block:'nearest' }); }
+}
+function fillTeam() { return budgetTimekeepers; }
+function fillMixSum() { return fillTeam().reduce((a, t) => a + (+fillState.mix[t.tkid] || 0), 0); }
+function fillSelectedRows() {
+  const sel = new Set(fillState.sel);
+  return budgetRows.map((r, i) => ({ r, i })).filter(x => sel.has(rowKey(x.r)));
+}
+function fillRate(t) { return fillState.rate === 'proposed' ? (+t.proposedRate || 0) : (+t.standardRate || 0); }
+
+// Works out the hours without touching the budget. Returns {error} or the plan.
+function computeFill() {
+  const team = fillTeam();
+  if (!team.length) return { error:'Add timekeepers to the budget first.' };
+  const sum = fillMixSum();
+  if (Math.abs(sum - 100) > 0.5) return { error:`The staffing mix adds up to ${+sum.toFixed(1)}%. It needs to total 100%.` };
+  const total = +fillState.total || 0;
+  if (total <= 0) return { error: fillState.basis === 'fees' ? 'Enter the total fee to spread.' : 'Enter the total hours to spread.' };
+  let rows = fillSelectedRows();
+  const creating = !rows.length && (fillState.newPhase.trim() || fillState.newTask.trim());
+  if (!rows.length && !creating) return { error:'Select at least one phase or task below.' };
+  const nRows = creating ? 1 : rows.length;
+  let totalHours = total;
+  if (fillState.basis === 'fees') {
+    const blended = team.reduce((a, t) => a + (+fillState.mix[t.tkid] || 0) / 100 * fillRate(t), 0);
+    if (blended <= 0) return { error:`The timekeepers in the mix have no ${fillState.rate} rate to price the fee with.` };
+    totalHours = total / blended;
+  }
+  // Largest-remainder rounding, twice: the total is shared across rows in whole rounding
+  // steps, then each row's steps are shared across people by the mix. Every cell lands on
+  // the step and the hours add up to the total typed (to the nearest step).
+  const step = fillState.round;
+  const share = (units, weights) => {
+    const sum = weights.reduce((a, b) => a + b, 0) || 1;
+    const raw = weights.map(w => units * w / sum), base = raw.map(Math.floor);
+    let left = units - base.reduce((a, b) => a + b, 0);
+    raw.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).forEach(([, i]) => { if (left > 0) { base[i]++; left--; } });
+    return base;
+  };
+  const rowUnits = fillState.spread === 'each'
+    ? Array(nRows).fill(Math.round(totalHours / step))
+    : share(Math.round(totalHours / step), Array(nRows).fill(1));
+  const mixW = team.map(t => +fillState.mix[t.tkid] || 0);
+  const rowsHours = rowUnits.map(u => { const h = {}; share(u, mixW).forEach((n, i) => { h[team[i].tkid] = Math.round(n * step * 100) / 100; }); return h; });
+  const hours = rowsHours[0];
+  const rowSum = h => team.reduce((a, t) => a + h[t.tkid], 0);
+  const rowHours = rowSum(hours);
+  const sumAt = key => rowsHours.reduce((a, h) => a + team.reduce((b, t) => b + h[t.tkid] * (+t[key] || 0), 0), 0);
+  const overwrite = fillState.mode === 'replace' && !creating
+    ? rows.filter(x => Object.values(x.r.hours || {}).some(h => +h > 0)).length : 0;
+  const varies = rowsHours.some(h => rowSum(h) !== rowHours);
+  return { team, hours, rowsHours, varies, nRows, creating, rows, rowHours, totalHours: rowsHours.reduce((a, h) => a + rowSum(h), 0),
+           stdFees: sumAt('standardRate'), propFees: sumAt('proposedRate'), overwrite };
+}
+
+function renderFillPanel() {
+  const panel = document.getElementById('fill-panel');
+  const btn = document.getElementById('fill-toggle');
+  if (btn) btn.classList.toggle('active', fillState.open);
+  if (!panel) return;
+  if (!fillState.open) { panel.style.display = 'none'; panel.innerHTML = ''; return; }
+  panel.style.display = 'block';
+  const team = fillTeam();
+  // drop selections for rows that no longer exist
+  const keys = new Set(budgetRows.map(rowKey));
+  fillState.sel = fillState.sel.filter(k => keys.has(k));
+
+  const mixRows = team.map(t => `<tr>
+      <td>${esc(t.name)}</td><td>${esc(t.title)}</td>
+      <td class="num">${curr(t.standardRate)}</td>
+      <td class="num"><input type="number" min="0" max="100" step="1" class="fill-pct" data-tkid="${escAttr(t.tkid)}"
+          value="${escAttr(String(fillState.mix[t.tkid] ?? ''))}" placeholder="0" oninput="setFillMix('${escAttr(t.tkid)}', this.value)"> %</td>
+    </tr>`).join('');
+
+  // phases → rows, in matrix order
+  const groups = [];
+  budgetRows.forEach(r => {
+    const p = r.phase || 'Unassigned';
+    let g = groups.find(x => x.phase === p); if (!g) groups.push(g = { phase: p, rows: [] });
+    if (!g.rows.some(x => rowKey(x) === rowKey(r))) g.rows.push(r);
+  });
+  const sel = new Set(fillState.sel);
+  const phaseHtml = groups.map((g, gi) => {
+    const n = g.rows.filter(r => sel.has(rowKey(r))).length;
+    const hrs = r => Object.values(r.hours || {}).reduce((a, h) => a + (+h || 0), 0);
+    return `<div class="fill-phase">
+      <label class="fill-phase-lbl"><input type="checkbox" data-phase="${gi}" ${n === g.rows.length ? 'checked' : ''}
+         onchange="setFillPhase(${gi}, this.checked)"> <strong>${esc(g.phase)}</strong>
+         <span class="text-muted" style="margin:0;">${n}/${g.rows.length}</span></label>
+      <div class="fill-tasks">${g.rows.map(r => `<label class="fill-task"><input type="checkbox" data-key="${escAttr(rowKey(r))}"
+          ${sel.has(rowKey(r)) ? 'checked' : ''} onchange="setFillRow(this.dataset.key, this.checked)">
+          ${esc(r.task || '(phase only)')}${hrs(r) > 0 ? ` <span class="fill-has">${hrs(r).toFixed(1)} h</span>` : ''}</label>`).join('')}</div>
+    </div>`;
+  }).join('');
+  // keep a phase checkbox's partial state visible
+  setTimeout(() => groups.forEach((g, gi) => {
+    const n = g.rows.filter(r => sel.has(rowKey(r))).length;
+    const cb = panel.querySelector(`input[data-phase="${gi}"]`); if (cb) cb.indeterminate = n > 0 && n < g.rows.length;
+  }), 0);
+
+  panel.innerHTML = `
+    <div class="fill-head"><strong>Fill Hours by Staffing Mix</strong>
+      <span class="text-muted" style="margin:0;">Set the mix once, pick phases or tasks, apply. Edit any cell afterwards.</span>
+      <button class="btn-copy" style="margin-left:auto;" onclick="toggleFillPanel(false)">Close</button></div>
+    ${team.length ? '' : `<div class="notice notice-warn">Add timekeepers above first; the mix is set per person.</div>`}
+    <div class="fill-grid">
+      <div>
+        <div class="fill-step">1 · Staffing mix <span class="text-muted" style="margin:0;">(share of hours)</span></div>
+        <table class="map-table"><thead><tr><th>Timekeeper</th><th>Title</th><th>${esc(baseLabel())} Rate</th><th>Share</th></tr></thead>
+          <tbody>${mixRows || '<tr><td colspan="4" class="text-muted">No timekeepers yet.</td></tr>'}</tbody>
+          <tfoot><tr><td colspan="3"><button class="btn-copy" onclick="fillEvenSplit()">Even split</button>
+            <button class="btn-copy" onclick="fillState.mix={};renderFillPanel()">Clear</button></td>
+            <td class="num" id="fill-sum"></td></tr></tfoot></table>
+
+        <div class="fill-step" style="margin-top:12px;">2 · Total to spread</div>
+        <div class="form-row" style="align-items:flex-end;margin-bottom:6px;">
+          <div class="form-group w120"><label>Total is</label>
+            <select id="fill-basis" onchange="fillState.basis=this.value;renderFillPanel()">
+              <option value="hours"${fillState.basis === 'hours' ? ' selected' : ''}>Hours</option>
+              <option value="fees"${fillState.basis === 'fees' ? ' selected' : ''}>Fees</option></select></div>
+          <div class="form-group w120"><label>${fillState.basis === 'fees' ? 'Total fee (' + esc(currency) + ')' : 'Total hours'}</label>
+            <input type="number" min="0" step="${fillState.basis === 'fees' ? 1000 : 1}" id="fill-total" value="${escAttr(String(fillState.total))}" oninput="fillState.total=this.value;updateFillPreview()"></div>
+          ${fillState.basis === 'fees' ? `<div class="form-group w120"><label>Priced at</label>
+            <select id="fill-rate" onchange="fillState.rate=this.value;updateFillPreview()">
+              <option value="standard"${fillState.rate === 'standard' ? ' selected' : ''}>${esc(baseLabel())} rates</option>
+              <option value="proposed"${fillState.rate === 'proposed' ? ' selected' : ''}>Proposed rates</option></select></div>` : ''}
+        </div>
+        <div class="fill-opts">
+          <label><input type="radio" name="fill-spread" value="split" ${fillState.spread === 'split' ? 'checked' : ''} onchange="fillState.spread='split';updateFillPreview()"> Split the total evenly across the selected rows</label>
+          <label><input type="radio" name="fill-spread" value="each" ${fillState.spread === 'each' ? 'checked' : ''} onchange="fillState.spread='each';updateFillPreview()"> Apply the full total to each selected row</label>
+        </div>
+        <div class="fill-opts">
+          <label><input type="radio" name="fill-mode" value="replace" ${fillState.mode === 'replace' ? 'checked' : ''} onchange="fillState.mode='replace';updateFillPreview()"> Replace hours in those rows</label>
+          <label><input type="radio" name="fill-mode" value="add" ${fillState.mode === 'add' ? 'checked' : ''} onchange="fillState.mode='add';updateFillPreview()"> Add to hours already there</label>
+          <label style="margin-left:auto;">Round to
+            <select id="fill-round" onchange="fillState.round=+this.value;updateFillPreview()" style="width:auto;padding:2px 6px;">
+              ${[0.1, 0.25, 0.5, 1].map(v => `<option value="${v}"${fillState.round === v ? ' selected' : ''}>${v} h</option>`).join('')}</select></label>
+        </div>
+      </div>
+      <div>
+        <div class="fill-step">3 · Apply to <span class="text-muted" style="margin:0;" id="fill-sel-count"></span>
+          <span style="margin-left:auto;"><button class="btn-copy" onclick="setFillAll(true)">All</button> <button class="btn-copy" onclick="setFillAll(false)">None</button></span></div>
+        <div class="fill-rows">${phaseHtml || `<div class="text-muted" style="padding:6px;">No phase or task rows yet. Load a template above, or name a new row:</div>`}</div>
+        ${groups.length ? '' : `<div class="form-row" style="margin-top:6px;">
+          <div class="form-group"><label>Phase</label><input type="text" id="fill-new-phase" value="${escAttr(fillState.newPhase)}" oninput="fillState.newPhase=this.value;updateFillPreview()"></div>
+          <div class="form-group"><label>Task <span class="note">(optional)</span></label><input type="text" id="fill-new-task" value="${escAttr(fillState.newTask)}" oninput="fillState.newTask=this.value;updateFillPreview()"></div></div>`}
+      </div>
+    </div>
+    <div id="fill-preview" class="notice notice-info" style="margin-top:10px;"></div>
+    <div><button class="btn btn-primary btn-sm" id="fill-apply" onclick="applyFill()">Apply Hours</button></div>`;
+  updateFillPreview();
+}
+function updateFillPreview() {
+  const sumEl = document.getElementById('fill-sum');
+  if (sumEl) { const s = fillMixSum(); sumEl.innerHTML = `<strong style="color:${Math.abs(s - 100) <= 0.5 ? '#1a6b2e' : '#b42318'}">${+s.toFixed(1)}%</strong>`; }
+  const cnt = document.getElementById('fill-sel-count');
+  if (cnt) { const n = fillSelectedRows().length; cnt.textContent = `(${n} row${n === 1 ? '' : 's'} selected)`; }
+  const box = document.getElementById('fill-preview'), btn = document.getElementById('fill-apply');
+  if (!box) return;
+  const c = computeFill();
+  if (btn) btn.disabled = !!c.error;
+  if (c.error) { box.className = 'notice notice-warn'; box.style.marginTop = '10px'; box.textContent = c.error; return; }
+  box.className = 'notice notice-info'; box.style.marginTop = '10px';
+  const per = c.team.filter(t => c.hours[t.tkid] > 0).map(t => `${esc(t.name)} ${c.hours[t.tkid].toFixed(fillState.round < 1 ? (fillState.round < 0.5 ? 2 : 1) : 0).replace(/\.?0+$/, '')} h`).join(' · ');
+  box.innerHTML = `${c.creating ? 'New row' : `<strong>${c.nRows}</strong> row${c.nRows === 1 ? '' : 's'}`}, each gets ${c.varies ? 'about ' : ''}<strong>${c.rowHours.toFixed(1)} h</strong>: ${per || '—'}${c.varies ? ' <span class="text-muted" style="margin:0;">(rows differ by one rounding step so the total stays exact)</span>' : ''}<br>
+    Adds <strong>${c.totalHours.toFixed(1)} h</strong> in all: ${curr(c.propFees)} at proposed rates, ${curr(c.stdFees)} at ${esc(baseLabel().toLowerCase())} rates.
+    ${fillState.basis === 'fees' ? `<span class="text-muted" style="margin:0;">Target ${curr((+fillState.total || 0) * (fillState.spread === 'each' ? c.nRows : 1))}; the difference is hour rounding.</span>` : ''}
+    ${c.overwrite ? `<br><span style="color:#9a6f00;font-weight:600;">${c.overwrite} selected row${c.overwrite === 1 ? ' has' : 's have'} hours already; Replace overwrites them.</span>` : ''}`;
+}
+function setFillMix(tkid, v) { const n = parseFloat(v); if (Number.isFinite(n) && n > 0) fillState.mix[tkid] = Math.min(100, n); else delete fillState.mix[tkid]; updateFillPreview(); }
+function fillEvenSplit() {
+  const team = fillTeam(); if (!team.length) return;
+  const base = Math.floor(1000 / team.length) / 10;           // one decimal place
+  fillState.mix = {};
+  team.forEach((t, i) => { fillState.mix[t.tkid] = i === 0 ? +(100 - base * (team.length - 1)).toFixed(1) : base; });
+  renderFillPanel();
+}
+function setFillRow(key, on) {
+  const s = new Set(fillState.sel); on ? s.add(key) : s.delete(key); fillState.sel = [...s]; renderFillPanel();
+}
+function setFillPhase(gi, on) {
+  const phases = [...new Set(budgetRows.map(r => r.phase || 'Unassigned'))];
+  const p = phases[gi]; const s = new Set(fillState.sel);
+  budgetRows.filter(r => (r.phase || 'Unassigned') === p).forEach(r => on ? s.add(rowKey(r)) : s.delete(rowKey(r)));
+  fillState.sel = [...s]; renderFillPanel();
+}
+function setFillAll(on) { fillState.sel = on ? [...new Set(budgetRows.map(rowKey))] : []; renderFillPanel(); }
+function applyFill() {
+  syncBudgetInputs();
+  const c = computeFill();
+  if (c.error) { showToast(c.error); return; }
+  if (c.overwrite && !confirm(`${c.overwrite} of the selected rows already ${c.overwrite === 1 ? 'has' : 'have'} hours. Replace them with the staffing mix?`)) return;
+  let targets = c.rows.map(x => x.r);
+  if (c.creating) {
+    const row = { phase: fillState.newPhase.trim(), task: fillState.newTask.trim(), hours: {} };
+    budgetRows.push(row); targets = [row];
+    fillState.sel = [rowKey(row)]; fillState.newPhase = fillState.newTask = '';
+  }
+  targets.forEach((r, ri) => {
+    if (fillState.mode === 'replace') r.hours = {};
+    r.hours = r.hours || {};
+    c.team.forEach(t => {
+      const h = (fillState.mode === 'add' ? (+r.hours[t.tkid] || 0) : 0) + c.rowsHours[ri][t.tkid];
+      r.hours[t.tkid] = Math.round(h * 100) / 100;
+    });
+  });
+  renderBudgetMatrix(); refreshBudgetOutput(0);
+  showToast(`Applied ${c.totalHours.toFixed(1)} hours to ${targets.length} row${targets.length === 1 ? '' : 's'}. Edit any cell to adjust.`);
 }
 
 function handleRateMasterUpload(event) {
@@ -3061,6 +3306,7 @@ function clearAll() {
   budgetTimekeepers=[]; budgetRows=[]; budgetPhaseOverrides={}; budgetScenarios=defaultBudgetScenarios();
   budgetClientFormat='phase'; budgetClientNote=''; budgetClientShowHours=true; budgetClientShowRates=false;
   budgetNarratives={client:null, internal:null};
+  fillState=defaultFillState();
   lastResult=null;
   rateBasis = FIRM_CONFIG.defaultBasis === 'premium' ? 'premium' : 'standard';
   const rb=document.querySelector(`input[name="rate-basis"][value="${rateBasis}"]`); if(rb) rb.checked=true;

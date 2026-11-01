@@ -5,7 +5,8 @@ self-contained HTML file**. No install, no server, no account, no network.
 
 - **Budget by phase and task:** start from a phase and task template (the UTBMS
   Litigation Code Set is built in; firms upload their own from Excel in Settings),
-  pick the team from a rate card, enter hours per timekeeper, and get fees at standard and proposed rates, the blended rate,
+  pick the team from a rate card, enter hours per timekeeper (or fill them in bulk
+  from a staffing mix), and get fees at standard and proposed rates, the blended rate,
   realization and profit margin.
 - **Default pricing options:** standard rates, 5/10/15% discounts, a fixed fee
   with contingency, the fee at the target margin and the walk-away fee at the
@@ -63,6 +64,7 @@ node tests/offline.test.js   # bundled library works, nothing is fetched
 node tests/budget.test.js    # known budget to the dollar, pricing options, narratives
 node tests/ui.test.js        # real controls, every export, uploads, Clear All
 node tests/templates.test.js # UTBMS template, template upload and mapping, save to file
+node tests/fill.test.js      # staffing-mix fill: hours and fee totals, selection, rounding
 ```
 
 `budget.test.js` and `ui.test.js` also check that client documents contain no
@@ -90,6 +92,21 @@ columns (blank phase cells repeat the phase above), a single UTBMS-style code li
 writes uploaded templates into the app file (`FIRM_CONFIG.templates`), so they travel
 with it. In the budget, **Load Template** fills the hours matrix. Rows left at zero
 hours stay out of every output, and **Remove Empty Rows** clears them from the matrix.
+
+## Fill hours by staffing mix
+
+**Fill Hours by Staffing Mix** (budget toolbar) fills the hours matrix in bulk:
+
+1. **Staffing mix:** each budget timekeeper's share of the hours, totalling 100%
+   (Even split is one click). It is kept for the session, so you set it once.
+2. **Total:** hours, or a fee. A fee is converted to hours at each person's rate
+   (standard by default, or proposed): hours = fee ÷ (Σ share × rate).
+3. **Apply to:** tick whole phases and/or individual tasks. The total is either split
+   evenly across them or applied to each one. **Replace** or **Add to** the hours there.
+
+Hours are rounded to 0.1, 0.25, 0.5 or 1 h with largest-remainder rounding, so every
+cell lands on the step and the hours add up to the total typed. A preview shows the
+hours per person and the fees before you apply; every cell stays editable after.
 
 ## Updating rate data
 
