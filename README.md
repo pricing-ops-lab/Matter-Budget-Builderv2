@@ -161,6 +161,7 @@ and previews send nothing. The downloaded app never includes it.
 | `404 /…` | a broken link someone followed |
 | `qr-scan` | a visit through the QR code, which encodes `?src=qr` |
 | `download-app` | a click on any Download button (title: which page) |
+| `course` | clicks through to the workshop page (title: which page; the link carries `utm_source=matter-budget-builder`) |
 | `sample-pdf`, `open-demo`, `source-file`, `linkedin`, `license`, `qr-download` | clicks on those links |
 | `demo-start`, `demo-step`, `demo-finished` | use of the demo player |
 
