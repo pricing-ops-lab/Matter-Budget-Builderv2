@@ -31,6 +31,7 @@ Built by Sergey Mezhiritskiy.
 | `404.html` | Sends broken links back to the home page. Hand-written. |
 | `assets/track.js` | Anonymous visit and download counter for the site pages (never the app). Hand-written. |
 | `assets/qr.*` | QR code for the landing page: PNG and SVG, plus a captioned slide card. Generated. |
+| `assets/pricing-in-the-age-of-ai.pdf` | The talk's slides, *Pricing in the Age of AI*, as PDF. Linked quietly from the landing page. |
 | `assets/sample-fee-estimate.*` | The client fee estimate the demo budget exports (PDF and PNG preview). Generated. |
 | `src/matter-budget-builder.src.html` | **The source you edit.** Loads its one library from a CDN; the build inlines it. |
 | `src/index.template.html` | Template for the landing page. |
@@ -161,6 +162,7 @@ and previews send nothing. The downloaded app never includes it.
 | `404 /…` | a broken link someone followed |
 | `qr-scan` | a visit through the QR code, which encodes `?src=qr` |
 | `download-app` | a click on any Download button (title: which page) |
+| `slides` | opens of the presentation PDF |
 | `course` | clicks through to the workshop page (title: which page; the link carries `utm_source=matter-budget-builder`) |
 | `sample-pdf`, `open-demo`, `source-file`, `linkedin`, `license`, `qr-download` | clicks on those links |
 | `demo-start`, `demo-step`, `demo-finished` | use of the demo player |
