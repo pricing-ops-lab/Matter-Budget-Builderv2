@@ -164,7 +164,7 @@ and previews send nothing. The downloaded app never includes it.
 | `download-app` | a click on any Download button (title: which page) |
 | `slides` | opens of the presentation PDF |
 | `course` | clicks through to the workshop page (title: which page; the link carries `utm_source=matter-budget-builder`) |
-| `sample-pdf`, `open-demo`, `source-file`, `linkedin`, `license`, `qr-download` | clicks on those links |
+| `sample-pdf`, `open-demo`, `linkedin`, `license`, `qr-download` | clicks on those links |
 | `demo-start`, `demo-step`, `demo-finished` | use of the demo player |
 
 Dashboard: https://matter-budget-builder.goatcounter.com (site code set in

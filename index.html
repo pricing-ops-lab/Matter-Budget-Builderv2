@@ -184,13 +184,7 @@
     width: 5px; height: 5px; border-radius: 50%; background: #bcc5dd;
   }
   .build-list b { color: var(--ink); font-weight: 600; }
-  .build-tip {
-    margin-top: 20px; padding: 14px 16px;
-    background: #f7f9fd; border-left: 3px solid var(--navy);
-    border-radius: 0 6px 6px 0; font-size: 13.5px; color: var(--muted); line-height: 1.65;
-  }
-  .build-tip b { color: var(--ink); font-weight: 600; }
-  .build-tip a, .build-close a { color: var(--navy); font-weight: 600; }
+  .build-close a { color: var(--navy); font-weight: 600; }
   .build-close { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--border-soft); }
 
   /* ── URL mismatch warning ── */
@@ -335,16 +329,6 @@
       <li><b>The client wording.</b> Assumptions, exclusions and how long an estimate stays valid, so the fee estimate reads like your firm wrote it.</li>
       <li><b>The internal memo.</b> Add the checks your pricing committee asks for, and drop the ones it doesn't.</li>
     </ul>
-
-    <div class="build-tip">
-      <b>A practical note on using AI tools.</b>
-      The downloaded file is 0.6 MB, and most of that is a bundled spreadsheet library
-      that will crowd an AI's context window for no benefit. Start from
-      <a href="https://github.com/pricing-ops-lab/Matter-Budget-Builderv2/blob/main/src/matter-budget-builder.src.html"
-         target="_blank" rel="noopener" data-track="source-file">the source file</a> instead &mdash; the same
-      application, without the libraries. The rate data sits between two clearly marked
-      comments so it is easy to point at.
-    </div>
 
     <p class="build-body build-close">
       Want to build your own? That is what the
