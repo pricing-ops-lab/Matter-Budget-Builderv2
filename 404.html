@@ -3,32 +3,88 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Page not found — Matter Budget Builder</title>
+<title>Matter Budget Builder</title>
+<meta name="author" content="Sergey Mezhiritskiy">
+<meta name="description" content="The Matter Budget Builder and the Pricing in the Age of AI slides are no longer available here. Copies already downloaded keep working.">
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a2b5e'/><text x='16' y='23' font-size='19' font-family='Arial,Helvetica,sans-serif' font-weight='700' fill='white' text-anchor='middle'>B</text></svg>">
+<!--
+  Take-down page. The site used to serve the Matter Budget Builder download, its
+  demo, a sample fee estimate and the "Pricing in the Age of AI" slides. Those are
+  removed; index.html and 404.html are both copies of this file, so the QR code and
+  old links land here. To relaunch: git revert the commit that took the site down.
+-->
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f3f4f9;color:#1e2435;
-       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
-  .card{background:#fff;border:1px solid #dde0eb;border-radius:10px;box-shadow:0 1px 2px rgba(19,31,69,.05),0 8px 28px rgba(19,31,69,.09);
-        max-width:460px;width:100%;padding:32px 28px;text-align:center}
-  .kicker{font-size:10px;text-transform:uppercase;letter-spacing:1.7px;font-weight:600;color:#5b6480;margin-bottom:8px}
-  h1{font-size:20px;color:#1a2b5e;margin-bottom:10px}
-  p{font-size:14px;color:#5b6480;line-height:1.55;margin-bottom:20px}
-  a.btn{display:inline-block;background:#1a2b5e;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:7px}
-  a.btn:hover{background:#24397a}
+  :root {
+    --navy: #1a2b5e; --navy-deep: #131f45; --navy-hover: #24397a;
+    --ink: #1e2435; --muted: #5b6480; --faint: #8a91a6;
+    --border: #dde0eb; --bg: #f3f4f9; --card: #ffffff;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --shadow: 0 1px 2px rgba(19,31,69,.05), 0 8px 28px rgba(19,31,69,.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { font-family: var(--font); color: var(--ink); background: var(--bg); line-height: 1.6; font-size: 15px; min-height: 100vh; }
+  header { background: linear-gradient(120deg, var(--navy-deep) 0%, var(--navy) 55%, #23346c 100%); color: #fff; padding: 30px 16px 42px; text-align: center; }
+  header .kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 1.7px; font-weight: 600; color: #9db0dd; margin-bottom: 9px; }
+  header h1 { font-size: 27px; font-weight: 700; letter-spacing: -.4px; }
+  header .byline { font-size: 13px; color: #dce4f7; margin-top: 7px; }
+  header .byline a { color: inherit; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.4); }
+  header .byline a:hover { color: #fff; border-bottom-color: #fff; }
+  main { max-width: 620px; margin: 0 auto; padding: 0 16px 56px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); padding: 30px 28px; text-align: center; }
+  .card:first-child { margin-top: -22px; }
+  .card + .card { margin-top: 18px; }
+  .card h2 { font-size: 19px; font-weight: 700; margin-bottom: 14px; }
+  .card p { color: var(--muted); margin-bottom: 14px; }
+  .card p b { color: var(--ink); font-weight: 600; }
+  .contact { display: inline-flex; align-items: center; justify-content: center; margin-top: 4px; background: var(--navy); color: #fff; text-decoration: none;
+    font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; box-shadow: 0 2px 8px rgba(26,43,94,.28); transition: background .18s; }
+  .contact:hover { background: var(--navy-hover); }
+  .contact:focus-visible, .btn-course:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(26,43,94,.24); }
+  .course-card { border-color: #c9d3ee; background: linear-gradient(135deg, #f4f6fd 0%, #ffffff 70%); text-align: left; }
+  .course-kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  .course-card h2 { color: var(--navy); font-size: 18px; margin-bottom: 8px; }
+  .btn-course { display: inline-flex; align-items: center; gap: 8px; color: var(--navy); border: 1.5px solid var(--navy); font-weight: 700; font-size: 14px;
+    text-decoration: none; padding: 10px 18px; border-radius: 8px; transition: background .16s, color .16s; }
+  .btn-course:hover { background: var(--navy); color: #fff; }
+  footer { text-align: center; font-size: 12px; color: var(--faint); padding: 24px 16px 0; }
+  @media (max-width: 560px) { header h1 { font-size: 22px; } .card { padding: 24px 20px; } .contact { width: 100%; } }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="kicker">Matter Budget Builder</div>
-    <h1>That page isn't here</h1>
-    <p>The link may be out of date. The download, the demo and the sample fee estimate are all on the home page.</p>
-    <!-- Absolute path: GitHub Pages serves this file for any missing path, at any depth. -->
-    <a class="btn" href="/Matter-Budget-Builderv2/">Go to the Matter Budget Builder</a>
-  </div>
-  <!-- Absolute path for the same reason as the link above. -->
-  <script src="/Matter-Budget-Builderv2/assets/track.js" defer data-404></script>
+
+<header>
+  <div class="kicker">Legal Pricing</div>
+  <h1>Matter Budget Builder</h1>
+  <div class="byline">Built by <a href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28" target="_blank" rel="noopener noreferrer" data-track="linkedin">Sergey Mezhiritskiy</a></div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>The tool and slides are no longer available here</h2>
+    <p>Thank you to everyone who came to the session and took a copy.</p>
+    <p><b>If you already downloaded the tool, nothing changes.</b> It runs entirely on your own
+      computer, so your copy keeps working exactly as before, online or off.</p>
+    <p>For a copy, a question, or to compare notes on building your own, get in touch.</p>
+    <a class="contact" href="https://www.linkedin.com/in/sergey-mezhiritskiy-alpp-b9201a28"
+       target="_blank" rel="noopener noreferrer" data-track="linkedin">Contact Sergey Mezhiritskiy</a>
+  </section>
+
+  <section class="card course-card">
+    <div class="course-kicker">Learn to build tools like this</div>
+    <h2>Building AI Agents for Your Pricing Department</h2>
+    <p>A director-level workshop on building tools like this one for your own pricing team, with AI doing the heavy lifting.</p>
+    <a class="btn-course" href="https://tvp-institute.com/p/building-ai-agents-for-your-pricing-department-director-level-workshop?utm_source=matter-budget-builder&amp;utm_medium=takedown-page"
+       target="_blank" rel="noopener" data-track="course">See the workshop
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 4h9v9M16 4 5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  </section>
+
+  <footer>Matter Budget Builder &copy; 2026 Sergey Mezhiritskiy</footer>
+</main>
+
+<!-- Absolute path: as 404.html this page is served at any depth. -->
+<script src="/Matter-Budget-Builderv2/assets/track.js" defer data-404></script>
 </body>
 </html>

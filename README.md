@@ -1,5 +1,13 @@
 # Matter Budget Builder
 
+> **Status: taken down (November 2026).** The tool download, the demo, the sample
+> fee estimate and the *Pricing in the Age of AI* slides are no longer served.
+> `index.html` and `404.html` are both copies of `src/retired.html`: a short note
+> with a LinkedIn contact button and the workshop link, so the QR code and old links
+> land somewhere sensible. The source and build tooling are unchanged.
+>
+> **To relaunch**, `git revert` the commit titled *"Take the tool and slides down"*.
+
 A legal matter budgeting tool that runs entirely in the browser, as a **single
 self-contained HTML file**. No install, no server, no account, no network.
 
